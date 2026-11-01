@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run fmt:check
+      - run: npm test
+      - run: npm pack --dry-run
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: node -e "const v='v'+require('./package.json').version; if(v!==process.env.GITHUB_REF_NAME) throw new Error(v+' != '+process.env.GITHUB_REF_NAME)"
+      - run: npm publish --provenance --access public
+      - run: gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
