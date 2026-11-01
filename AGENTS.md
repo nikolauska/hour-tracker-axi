@@ -23,11 +23,12 @@ Run from the repository root. Tests use temporary directories via the `HOURS_AXI
 - `npm ci` installs locked dependencies.
 - `npm test` builds, then runs `test/` with Node's test runner under `TZ=UTC`.
 - `npm run lint` runs oxlint and a TypeScript type check; `npm run fmt` formats and `npm run fmt:check` checks formatting.
-- Before committing, run `npm run fmt:check`, `npm run lint`, and `npm test`.
+- Before committing, run `npm run fmt:check`, `npm run lint`, `npm test`, and `npm pack --dry-run` (the same checks CI runs).
 
 ## Boundaries
 
 - Never run `hours-axi setup claude` (with or without `--remove`) or write to the real `~/.claude/settings.json` or `~/.local/share/hours-axi/` during development unless the user asks. Exercise them through the test overrides above.
 - The hook stores timing metadata only. Do not add prompts, tool input or output, file contents, or transcripts to the event log.
 - Use generic project names (`alpha`, `beta`) and ticket ids (`TICKET-1`) in tests and examples, never real project names.
-- Keep commits small, one change each, with a conventional subject and a short description of what changed and why. Do not bypass hooks with `--no-verify`. Do not run `npm publish`.
+- Keep commits small, one change each, with a conventional subject and a short description of what changed and why. Do not bypass hooks with `--no-verify`.
+- Releases publish from CI: pushing a `v<version>` tag runs `.github/workflows/ci.yml`, which checks the tag matches `package.json`, publishes to npm, and creates the GitHub release. Keep `package.json` and `package-lock.json` versions aligned, and never run `npm publish` locally.
