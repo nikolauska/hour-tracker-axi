@@ -1,3 +1,4 @@
+import { DROP_HELP, EDIT_HELP } from "./edit.js";
 import { REPORT_HELP } from "./report.js";
 import { BLOCKS_HELP } from "./blocks.js";
 import { NOTE_HELP } from "./note.js";
@@ -10,6 +11,8 @@ const COMMANDS: Record<string, string> = {
   "blocks [--day <day>]": "List a day's blocks with ids, times, notes and refs",
   "report [--week|--last-week|--day|--from --to] [--by] [--format]":
     "Rounded hours per day and project, as TOON or pasteable CSV",
+  "edit <id> [--start] [--end] [--project] [--note]": "Correct a block (only when the user asks)",
+  "drop <id>": "Exclude a block from reports (only when the user asks)",
 };
 
 const NOTES = [
@@ -34,6 +37,8 @@ export function topLevelHelp(): string {
 }
 
 const COMMAND_HELP: Record<string, string> = {
+  edit: EDIT_HELP,
+  drop: DROP_HELP,
   report: REPORT_HELP,
   blocks: BLOCKS_HELP,
   note: NOTE_HELP,
