@@ -1,6 +1,10 @@
+import { NOTE_HELP } from "./note.js";
+
 // Agent-facing usage lives here, not in the skill, so it can't drift from what the CLI does.
 const COMMANDS: Record<string, string> = {
   "(none)": "Show today's tracked time, the running block, and blocks without a note",
+  'note "<what>"':
+    "Describe the work in the current block (agents: run at task start, on direction change, and at the end)",
 };
 
 const NOTES = [
@@ -9,7 +13,7 @@ const NOTES = [
   "Run `hours-axi <command> --help` for a command's flags and notes",
 ];
 
-const EXAMPLES = ["hours-axi"];
+const EXAMPLES = ["hours-axi", 'hours-axi note "Fix login redirect loop" --ref ABC-123'];
 
 export function topLevelHelp(): string {
   return [
@@ -24,7 +28,9 @@ export function topLevelHelp(): string {
   ].join("\n");
 }
 
-const COMMAND_HELP: Record<string, string> = {};
+const COMMAND_HELP: Record<string, string> = {
+  note: NOTE_HELP,
+};
 
 export function commandHelp(command: string): string | undefined {
   return COMMAND_HELP[command];

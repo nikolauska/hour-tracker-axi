@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { runAxiCli, type AxiCliCommand } from "axi-sdk-js";
 import { home } from "./commands/home.js";
 import { commandHelp, topLevelHelp } from "./commands/help.js";
+import { noteCommand } from "./commands/note.js";
 import type { Deps } from "./state.js";
 
 interface RunOptions extends Partial<Deps> {
@@ -19,7 +20,9 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<voi
     now: options.now ?? Date.now,
     cwd: options.cwd ?? process.cwd(),
   };
-  const commands: Record<string, AxiCliCommand<undefined>> = {};
+  const commands: Record<string, AxiCliCommand<undefined>> = {
+    note: noteCommand(deps),
+  };
 
   await runAxiCli({
     argv,
