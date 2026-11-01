@@ -1,3 +1,4 @@
+import { ADD_HELP } from "./add.js";
 import { DROP_HELP, EDIT_HELP } from "./edit.js";
 import { REPORT_HELP } from "./report.js";
 import { BLOCKS_HELP } from "./blocks.js";
@@ -13,6 +14,8 @@ const COMMANDS: Record<string, string> = {
     "Rounded hours per day and project, as TOON or pasteable CSV",
   "edit <id> [--start] [--end] [--project] [--note]": "Correct a block (only when the user asks)",
   "drop <id>": "Exclude a block from reports (only when the user asks)",
+  "add --from HH:MM --to HH:MM [--day] [--project] [--note]":
+    "Add time no agent saw, like meetings (only when the user asks)",
 };
 
 const NOTES = [
@@ -37,6 +40,7 @@ export function topLevelHelp(): string {
 }
 
 const COMMAND_HELP: Record<string, string> = {
+  add: ADD_HELP,
   edit: EDIT_HELP,
   drop: DROP_HELP,
   report: REPORT_HELP,

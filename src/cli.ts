@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { runAxiCli, type AxiCliCommand } from "axi-sdk-js";
 import { home } from "./commands/home.js";
+import { addCommand } from "./commands/add.js";
 import { dropCommand, editCommand } from "./commands/edit.js";
 import { reportCommand } from "./commands/report.js";
 import { blocksCommand } from "./commands/blocks.js";
@@ -24,6 +25,7 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<voi
     cwd: options.cwd ?? process.cwd(),
   };
   const commands: Record<string, AxiCliCommand<undefined>> = {
+    add: addCommand(deps),
     edit: editCommand(deps),
     drop: dropCommand(deps),
     report: reportCommand(deps),
