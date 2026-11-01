@@ -30,7 +30,7 @@ Days are your local calendar days. A block that runs past midnight is split ther
 
 ## Rounding
 
-Rounding happens only in reports, never in the stored record. Each day + project total is rounded once, to the nearest step (15 minutes by default). Rounding each block separately would make a day with many short blocks look longer than it was.
+Rounding happens only in reports, never in the stored record. Each day + project total is rounded once, to the nearest step (15 minutes by default). Rounding each block separately would make a day with many short blocks look longer than it was. Hours are shown with at most two decimals, so a step that doesn't divide an hour evenly (like 10 minutes) shows 50 minutes as 0.83.
 
 A day + project with very little time can round to 0. That row still shows up in the report, so nothing disappears without you seeing it. The report also shows the exact unrounded total next to the rounded one.
 

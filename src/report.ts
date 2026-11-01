@@ -41,12 +41,12 @@ export function buildReport(state: State, from: string, to: string): Report {
       return {
         date: group.date,
         project: group.project,
-        hours: Math.round(group.ms / roundMs) * (roundMs / 3_600_000),
+        hours: twoDecimals(Math.round(group.ms / roundMs) * (roundMs / 3_600_000)),
         notes: unique(blocks.flatMap((b) => b.notes)).join("; "),
         refs: unique(blocks.flatMap((b) => b.refs)).join(", "),
       };
     });
-  return { rows, totalHours: rows.reduce((sum, r) => sum + r.hours, 0), exactMs };
+  return { rows, totalHours: twoDecimals(rows.reduce((sum, r) => sum + r.hours, 0)), exactMs };
 }
 
 export function byProject(rows: DayRow[]): Array<{ project: string; hours: number; days: number }> {
@@ -57,6 +57,7 @@ export function byProject(rows: DayRow[]): Array<{ project: string; hours: numbe
     t.days += 1;
     totals.set(row.project, t);
   }
+  for (const t of totals.values()) t.hours = twoDecimals(t.hours);
   return [...totals.values()].sort(
     (a, b) => b.hours - a.hours || a.project.localeCompare(b.project),
   );
@@ -72,6 +73,12 @@ export function toCsv(rows: DayRow[]): string {
 
 function csvCell(value: string): string {
   return /[",\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+}
+
+// A step that doesn't divide an hour (e.g. 10 min) gives 0.8333…, and float sums drift
+// (0.1 + 0.2); two decimals matches the CSV and what hour reports take.
+function twoDecimals(hours: number): number {
+  return Math.round(hours * 100) / 100;
 }
 
 function unique(values: string[]): string[] {

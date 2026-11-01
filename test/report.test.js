@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import { sandbox } from "./support/cli.js";
 
@@ -90,4 +92,17 @@ test("a malformed --month is a usage error", async () => {
   const { exitCode, output } = await sandbox().cli("report", "--month", "2026-13");
   assert.equal(exitCode, 2);
   assert.match(output, /--month must be YYYY-MM/);
+});
+
+test("a step that doesn't divide an hour shows two decimals", async () => {
+  const s = sandbox("2026-11-02T18:00:00.000Z");
+  mkdirSync(s.env.HOURS_AXI_CONFIG_DIR, { recursive: true });
+  writeFileSync(
+    join(s.env.HOURS_AXI_CONFIG_DIR, "config.json"),
+    JSON.stringify({ roundMinutes: 10 }),
+  );
+  for (const m of ["00", "10", "20", "30", "40", "50"]) s.ping("a", `2026-11-02T09:${m}:00.000Z`);
+  const { output } = await s.cli("report", "--day", "today");
+  assert.match(output, /hours: 0\.83\n/);
+  assert.match(output, /2026-11-02,alpha,0\.83,/);
 });
