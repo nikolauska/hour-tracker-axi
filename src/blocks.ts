@@ -5,6 +5,8 @@ import { dayKey, nextLocalMidnight } from "./time.js";
 export interface Config {
   idleGapMinutes: number;
   roundMinutes: number;
+  // Repo name → name used in reports.
+  projects?: Record<string, string>;
 }
 
 export interface Block {
@@ -29,14 +31,17 @@ export interface Allocation {
 // recalculates old weeks correctly instead of being stuck with stored results.
 export function buildBlocks(events: HoursEvent[], config: Config): Block[] {
   const gap = config.idleGapMinutes * 60_000;
-  const blocks = activityBlocks(events, gap);
+  // Aliases are resolved here, on read, so renaming a project in config fixes past weeks too,
+  // and a note or edit can use either the repo name or the report name.
+  const name = (project: string) => config.projects?.[project] ?? project;
+  const blocks = activityBlocks(events, gap, name);
   const byId = new Map(blocks.map((block) => [block.id, block]));
 
   for (const event of events) {
     if (event.type === "add") {
       const block: Block = {
         id: event.id,
-        project: event.project,
+        project: name(event.project),
         start: Date.parse(event.start),
         end: Date.parse(event.end),
         notes: event.note ? [event.note] : [],
@@ -55,7 +60,7 @@ export function buildBlocks(events: HoursEvent[], config: Config): Block[] {
     if (event.type === "note") {
       const block = event.block
         ? byId.get(event.block)
-        : blockForNote(blocks, event.project, Date.parse(event.ts), gap);
+        : blockForNote(blocks, name(event.project), Date.parse(event.ts), gap);
       if (!block) continue;
       if (!block.notes.includes(event.text)) block.notes.push(event.text);
       if (event.ref && !block.refs.includes(event.ref)) block.refs.push(event.ref);
@@ -66,7 +71,7 @@ export function buildBlocks(events: HoursEvent[], config: Config): Block[] {
       if (!block) continue;
       if (event.start) block.start = Date.parse(event.start);
       if (event.end) block.end = Date.parse(event.end);
-      if (event.project) block.project = event.project;
+      if (event.project) block.project = name(event.project);
       if (event.note !== undefined) block.notes = event.note ? [event.note] : [];
     }
   }
@@ -76,7 +81,11 @@ export function buildBlocks(events: HoursEvent[], config: Config): Block[] {
     .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
 }
 
-function activityBlocks(events: HoursEvent[], gap: number): Block[] {
+function activityBlocks(
+  events: HoursEvent[],
+  gap: number,
+  name: (project: string) => string,
+): Block[] {
   const bySession = new Map<string, ActivityEvent[]>();
   for (const event of events) {
     if (event.type !== "activity") continue;
@@ -97,7 +106,7 @@ function activityBlocks(events: HoursEvent[], gap: number): Block[] {
       blocks.push({
         id: blockId(session, run[0].ts),
         // A session can cd between repos; the most frequent project is what the time was spent on.
-        project: mostFrequent(run.map((e) => e.project)),
+        project: mostFrequent(run.map((e) => name(e.project))),
         session,
         start,
         end,

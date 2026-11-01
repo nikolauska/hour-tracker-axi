@@ -48,6 +48,6 @@ Settings are optional and live in `~/.config/hours-axi/config.json` (or `$XDG_CO
 
 - `idleGapMinutes`: the longest pause that still counts as continuous work. See [How hours are counted](how-hours-are-counted.md).
 - `roundMinutes`: the rounding step used in reports.
-- `projects`: renames a repo in reports, for when your reporting tool expects a client or project code.
+- `projects`: renames a repo in reports, for when your reporting tool expects a client or project code. `--project` on `note`, `edit` and `add` accepts either name.
 
 All three apply to past weeks too, because hours are recalculated from the raw record every time.

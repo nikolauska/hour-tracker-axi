@@ -21,11 +21,7 @@ export interface State {
 export function loadState(deps: Deps): State {
   const settings = loadSettings(deps.env);
   const events = readEvents(eventsPath(deps.env));
-  // Aliases are applied on read, not stored, so renaming a project in config fixes past weeks too.
-  const blocks = buildBlocks(events, settings).map((block) => ({
-    ...block,
-    project: settings.projects[block.project] ?? block.project,
-  }));
+  const blocks = buildBlocks(events, settings);
   return { settings, events, blocks, allocations: allocate(blocks) };
 }
 

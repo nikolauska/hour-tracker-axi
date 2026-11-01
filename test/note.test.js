@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { readEvents } from "../dist/events.js";
 import { sandbox } from "./support/cli.js";
 
@@ -37,4 +39,18 @@ test("an unknown --block is rejected", async () => {
   const { output, exitCode } = await s.cli("note", "x", "--block", "b-000000");
   assert.equal(exitCode, 1);
   assert.match(output, /no block b-000000/);
+});
+
+test("a note can name the project by its report alias", async () => {
+  const s = sandbox("2026-11-02T09:12:00.000Z");
+  mkdirSync(s.env.HOURS_AXI_CONFIG_DIR, { recursive: true });
+  writeFileSync(
+    join(s.env.HOURS_AXI_CONFIG_DIR, "config.json"),
+    JSON.stringify({ projects: { alpha: "CLIENT-1" } }),
+  );
+  s.ping("a", "2026-11-02T09:00:00.000Z");
+  s.ping("a", "2026-11-02T09:10:00.000Z");
+  const { output } = await s.cli("note", "Review", "--project", "CLIENT-1");
+  assert.match(output, /block: b-[0-9a-f]{6}/);
+  assert.match((await s.cli("blocks")).output, /CLIENT-1,.*Review/);
 });
