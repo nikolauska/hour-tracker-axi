@@ -54,3 +54,25 @@ test("a note can name the project by its report alias", async () => {
   assert.match(output, /block: b-[0-9a-f]{6}/);
   assert.match((await s.cli("blocks")).output, /CLIENT-1,.*Review/);
 });
+
+test("--block reports that block, even when it belongs to another repo", async () => {
+  const s = sandbox("2026-11-02T09:12:00.000Z");
+  s.ping("b", "2026-11-02T09:00:00.000Z", "beta");
+  s.ping("b", "2026-11-02T09:10:00.000Z", "beta");
+  const id = /b-[0-9a-f]{6}/.exec((await s.cli("blocks")).output)[0];
+  const { output } = await s.cli("note", "Review", "--block", id);
+  assert.match(output, new RegExp(`block: ${id}`));
+});
+
+test("repeating yesterday's note text reports today's block", async () => {
+  const s = sandbox("2026-11-02T09:11:00.000Z");
+  s.ping("a", "2026-11-02T09:00:00.000Z");
+  s.ping("a", "2026-11-02T09:10:00.000Z");
+  await s.cli("note", "Fix tests");
+  s.setNow("2026-11-03T09:11:00.000Z");
+  s.ping("a", "2026-11-03T09:00:00.000Z");
+  s.ping("a", "2026-11-03T09:10:00.000Z");
+  const { output } = await s.cli("note", "Fix tests");
+  const today = /b-[0-9a-f]{6}/.exec((await s.cli("blocks")).output)[0];
+  assert.match(output, new RegExp(`block: ${today}`));
+});

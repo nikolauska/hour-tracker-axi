@@ -128,7 +128,7 @@ function activityBlocks(
   return blocks;
 }
 
-function blockForNote(
+export function blockForNote(
   blocks: Block[],
   project: string,
   ts: number,

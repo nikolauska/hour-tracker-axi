@@ -4,6 +4,7 @@ import { eventsPath } from "../config.js";
 import { notFound, validation } from "../errors.js";
 import { appendEvent, type NoteEvent } from "../events.js";
 import { detectProject } from "../project.js";
+import { blockForNote } from "../blocks.js";
 import { findBlock, loadState, type Deps } from "../state.js";
 
 export const NOTE_HELP = [
@@ -45,10 +46,17 @@ export function noteCommand(deps: Deps): AxiCliCommand<undefined> {
     };
     appendEvent(eventsPath(deps.env), event);
 
+    // Re-run the same matching rule buildBlocks used, limited to blocks that now hold this text,
+    // so a repeated note ("Fix tests" again tomorrow) reports today's block, not the first one.
     const state = loadState(deps);
-    const block = state.blocks.find(
-      (b) => b.notes.includes(text) && b.project === (state.settings.projects[project] ?? project),
-    );
+    const block = blockId
+      ? findBlock(state, blockId)
+      : blockForNote(
+          state.blocks.filter((b) => b.notes.includes(text)),
+          state.settings.projects[project] ?? project,
+          deps.now(),
+          state.settings.idleGapMinutes * 60_000,
+        );
     return {
       noted: text,
       project,
