@@ -1,3 +1,4 @@
+import { SETUP_HELP } from "./setup.js";
 import { ADD_HELP } from "./add.js";
 import { DROP_HELP, EDIT_HELP } from "./edit.js";
 import { REPORT_HELP } from "./report.js";
@@ -16,6 +17,8 @@ const COMMANDS: Record<string, string> = {
   "drop <id>": "Exclude a block from reports (only when the user asks)",
   "add --from HH:MM --to HH:MM [--day] [--project] [--note]":
     "Add time no agent saw, like meetings (only when the user asks)",
+  "setup claude [--remove]":
+    "Install or remove the Claude Code hooks that record time (edits user settings; only when the user asks)",
 };
 
 const NOTES = [
@@ -40,6 +43,7 @@ export function topLevelHelp(): string {
 }
 
 const COMMAND_HELP: Record<string, string> = {
+  setup: SETUP_HELP,
   add: ADD_HELP,
   edit: EDIT_HELP,
   drop: DROP_HELP,
