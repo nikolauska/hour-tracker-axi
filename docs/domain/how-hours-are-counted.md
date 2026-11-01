@@ -11,7 +11,7 @@ A **block** is one stretch of continuous activity within one agent session. A bl
 - **Idle gap.** If two moments in the same session are at most the idle gap apart (15 minutes by default), the time between them counts as work. A longer pause ends the block, and the next activity starts a new one. Lunch, meetings and evenings therefore don't count, even if the session stays open.
 - **A lone moment is not work.** A single moment with nothing within the idle gap has no length and produces no block.
 - **One project per block.** A block belongs to the repo it ran in. If a session moved between repos, the block goes to the repo where most of its activity happened. Git worktrees count as their main repo.
-- **Stable ids.** Each block has a short id (like `b-4caa1e`) that stays the same between views, so it can be referenced for fixes and notes.
+- **Stable ids.** Each block has a short id (like `b-4caa1e`) that stays the same between views, so it can be referenced for fixes and notes. In the rare case two blocks would get the same id, the later one gets a suffix (like `b-4caa1e-2`), so a fix never hits two blocks at once.
 
 Any activity counts, including long agent runs while you are away from the keyboard. That makes the number simple to understand, but it can be higher than the time you personally spent. Review the day before reporting it.
 

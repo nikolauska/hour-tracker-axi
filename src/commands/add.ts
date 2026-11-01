@@ -3,7 +3,7 @@ import type { AxiCliCommand } from "axi-sdk-js";
 import { parseCommand } from "../args.js";
 import { eventsPath } from "../config.js";
 import { validation } from "../errors.js";
-import { appendEvent } from "../events.js";
+import { appendEvent, readEvents } from "../events.js";
 import { detectProject } from "../project.js";
 import type { Deps } from "../state.js";
 import { clock, parseClock, parseDay } from "../time.js";
@@ -45,7 +45,13 @@ export function addCommand(deps: Deps): AxiCliCommand<undefined> {
     if (end <= start) validation("--to must be after --from", "Run `hours-axi add --help`");
 
     // Random rather than derived ids: two identical manual entries are two real meetings.
-    const id = `m-${randomBytes(3).toString("hex")}`;
+    // Checked against earlier entries because a reused id would merge corrections for both.
+    const taken = new Set(
+      readEvents(eventsPath(deps.env)).flatMap((e) => (e.type === "add" ? [e.id] : [])),
+    );
+    let id: string;
+    do id = `m-${randomBytes(3).toString("hex")}`;
+    while (taken.has(id));
     const project = (flags.project as string | undefined) ?? detectProject(deps.cwd).project;
     appendEvent(eventsPath(deps.env), {
       v: 1,

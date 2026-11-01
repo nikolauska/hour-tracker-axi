@@ -179,3 +179,33 @@ test("an edited note replaces earlier notes but keeps notes written after the ed
   );
   assert.deepEqual(blocks[0].notes, ["Release prep", "Add changelog"]);
 });
+
+test("colliding block ids get a suffix so a drop hits only one block", async () => {
+  const { createHash } = await import("node:crypto");
+  const short = (session) =>
+    createHash("sha1")
+      .update(`${session}\0${T("09:00")}`)
+      .digest("hex")
+      .slice(0, 6);
+  const seen = new Map();
+  let pair;
+  for (let i = 0; !pair; i++) {
+    const h = short(`s${i}`);
+    if (seen.has(h)) pair = [seen.get(h), `s${i}`];
+    else seen.set(h, `s${i}`);
+  }
+  const events = pair.flatMap((session) => [
+    activity(session, "09:00"),
+    activity(session, "09:10"),
+  ]);
+  const ids = buildBlocks(events, CONFIG).map((b) => b.id);
+  assert.equal(new Set(ids).size, 2);
+  const kept = buildBlocks(
+    [...events, { v: 1, type: "drop", ts: T("10:00"), block: ids[0] }],
+    CONFIG,
+  );
+  assert.deepEqual(
+    kept.map((b) => b.id),
+    [ids[1]],
+  );
+});

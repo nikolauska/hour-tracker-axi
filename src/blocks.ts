@@ -125,6 +125,20 @@ function activityBlocks(
     }
     flush();
   }
+  return withUniqueIds(blocks);
+}
+
+// The short hash can collide, and a shared id would let one drop or edit hit two blocks.
+// The earliest block keeps the plain id; later ones get a suffix. New activity is always
+// later than what is logged, so an id that was already shown never changes.
+function withUniqueIds(blocks: Block[]): Block[] {
+  blocks.sort((a, b) => a.start - b.start || (a.session ?? "").localeCompare(b.session ?? ""));
+  const seen = new Map<string, number>();
+  for (const block of blocks) {
+    const count = (seen.get(block.id) ?? 0) + 1;
+    seen.set(block.id, count);
+    if (count > 1) block.id = `${block.id}-${count}`;
+  }
   return blocks;
 }
 
