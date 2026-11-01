@@ -63,3 +63,12 @@ export function addDays(day: string, days: number): string {
   const [y, m, d] = day.split("-").map(Number);
   return dayKey(new Date(y, m - 1, d + days).getTime());
 }
+
+// Inclusive first and last local day of a YYYY-MM month.
+export function monthRange(month: string): [string, string] | undefined {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) return undefined;
+  const [y, m] = [Number(match[1]), Number(match[2])];
+  if (m < 1 || m > 12) return undefined;
+  return [dayKey(new Date(y, m - 1, 1).getTime()), dayKey(new Date(y, m, 0).getTime())];
+}

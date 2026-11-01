@@ -72,3 +72,22 @@ test("conflicting range flags are a usage error", async () => {
   assert.equal(exitCode, 2);
   assert.match(output, /pick one range/);
 });
+
+test("--month covers a calendar month, defaulting to the current one", async () => {
+  const s = week();
+  const current = await s.cli("report", "--month");
+  assert.match(current.output, /from: 2026-11-01\n\s+to: 2026-11-30/);
+  assert.match(current.output, /rows\[2\]/);
+  const october = await s.cli("report", "--month", "2026-10", "--format", "csv");
+  assert.equal(october.output, "date,project,hours,notes,refs\n2026-10-30,alpha,0.25,,\n");
+  assert.match(
+    (await s.cli("report", "--last-month")).output,
+    /from: 2026-10-01\n\s+to: 2026-10-31/,
+  );
+});
+
+test("a malformed --month is a usage error", async () => {
+  const { exitCode, output } = await sandbox().cli("report", "--month", "2026-13");
+  assert.equal(exitCode, 2);
+  assert.match(output, /--month must be YYYY-MM/);
+});

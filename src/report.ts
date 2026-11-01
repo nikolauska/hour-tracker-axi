@@ -66,7 +66,8 @@ export function toCsv(rows: DayRow[]): string {
   const lines = ["date,project,hours,notes,refs"];
   for (const r of rows)
     lines.push([r.date, r.project, r.hours.toFixed(2), r.notes, r.refs].map(csvCell).join(","));
-  return `${lines.join("\n")}\n`;
+  // No trailing newline: the CLI runtime adds one, and a blank last line trips some importers.
+  return lines.join("\n");
 }
 
 function csvCell(value: string): string {

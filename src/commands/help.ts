@@ -11,7 +11,7 @@ const COMMANDS: Record<string, string> = {
   'note "<what>"':
     "Describe the work in the current block (agents: run at task start, on direction change, and at the end)",
   "blocks [--day <day>]": "List a day's blocks with ids, times, notes and refs",
-  "report [--week|--last-week|--day|--from --to] [--by] [--format]":
+  "report [--week|--last-week|--month [YYYY-MM]|--last-month|--day|--from --to] [--by] [--format]":
     "Rounded hours per day and project, as TOON or pasteable CSV",
   "edit <id> [--start] [--end] [--project] [--note]": "Correct a block (only when the user asks)",
   "drop <id>": "Exclude a block from reports (only when the user asks)",
@@ -36,7 +36,7 @@ const EXAMPLES = [
   "hours-axi",
   'hours-axi note "Fix login redirect loop" --ref ABC-123',
   "hours-axi report --week",
-  "hours-axi report --last-week --format csv",
+  "hours-axi report --last-month --format csv",
 ];
 
 export function topLevelHelp(): string {

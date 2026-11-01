@@ -3,13 +3,15 @@ import { parseCommand } from "../args.js";
 import { validation } from "../errors.js";
 import { buildReport, byProject, toCsv } from "../report.js";
 import { loadState, type Deps } from "../state.js";
-import { addDays, duration, parseDay, weekStart } from "../time.js";
+import { addDays, dayKey, duration, monthRange, parseDay, weekStart } from "../time.js";
 
 export const REPORT_HELP = [
-  "usage: hours-axi report [--week | --last-week | --day <day> | --from <day> --to <day>] [--by day|project] [--format toon|csv]",
+  "usage: hours-axi report [--week | --last-week | --month [YYYY-MM] | --last-month | --day <day> | --from <day> --to <day>] [--by day|project] [--format toon|csv]",
   "flags:",
   "  --week: This Monday-to-Sunday week (default)",
   "  --last-week: The previous Monday-to-Sunday week",
+  "  --month [YYYY-MM]: A calendar month; this month when no month is given",
+  "  --last-month: The previous calendar month",
   "  --day <day>: One day: today, yesterday or YYYY-MM-DD",
   "  --from <day> --to <day>: Inclusive range of local days",
   "  --by day|project: One row per day and project (default), or totals per project",
@@ -23,9 +25,11 @@ export const REPORT_HELP = [
 
 export function reportCommand(deps: Deps): AxiCliCommand<undefined> {
   return (args) => {
-    const { positionals, flags } = parseCommand("report", args, {
+    const { positionals, flags } = parseCommand("report", normalizeMonth(args), {
       week: { type: "boolean" },
       "last-week": { type: "boolean" },
+      month: { type: "string" },
+      "last-month": { type: "boolean" },
       day: { type: "string" },
       from: { type: "string" },
       to: { type: "string" },
@@ -70,10 +74,12 @@ export function reportCommand(deps: Deps): AxiCliCommand<undefined> {
 }
 
 function range(flags: Record<string, string | boolean | undefined>, now: number): [string, string] {
-  const chosen = ["week", "last-week", "day", "from"].filter((k) => flags[k] !== undefined);
+  const chosen = ["week", "last-week", "month", "last-month", "day", "from"].filter(
+    (k) => flags[k] !== undefined,
+  );
   if (chosen.length > 1)
     validation(
-      "pick one range: --week, --last-week, --day or --from/--to",
+      "pick one range: --week, --last-week, --month, --last-month, --day or --from/--to",
       "Run `hours-axi report --help`",
     );
   if (flags.to !== undefined && flags.from === undefined)
@@ -81,6 +87,16 @@ function range(flags: Record<string, string | boolean | undefined>, now: number)
   if (flags["last-week"]) {
     const start = addDays(weekStart(now), -7);
     return [start, addDays(start, 6)];
+  }
+  if (flags.month !== undefined) {
+    const month = flags.month === CURRENT ? dayKey(now).slice(0, 7) : String(flags.month);
+    const days = monthRange(month);
+    if (!days) validation("--month must be YYYY-MM", "Run `hours-axi report --month 2026-01`");
+    return days;
+  }
+  if (flags["last-month"]) {
+    const [first] = monthRange(dayKey(now).slice(0, 7)) as [string, string];
+    return monthRange(addDays(first, -1).slice(0, 7)) as [string, string];
   }
   if (flags.day !== undefined) {
     const day = dayFlag(String(flags.day), "--day", now);
@@ -102,4 +118,24 @@ function dayFlag(value: string, flag: string, now: number): string {
   if (!day)
     validation(`${flag} must be today, yesterday or YYYY-MM-DD`, "Run `hours-axi report --help`");
   return day;
+}
+
+const CURRENT = "current";
+
+// --month takes an optional value, which node:util parseArgs can't express, so the bare
+// flag is rewritten to mean the current month before parsing.
+function normalizeMonth(args: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] !== "--month") {
+      out.push(args[i]);
+      continue;
+    }
+    const next = args[i + 1];
+    if (next !== undefined && !next.startsWith("--")) {
+      out.push(`--month=${next}`);
+      i++;
+    } else out.push(`--month=${CURRENT}`);
+  }
+  return out;
 }
