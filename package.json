@@ -1,0 +1,52 @@
+{
+  "name": "@nikolauska/hour-tracker-axi",
+  "version": "0.1.0",
+  "description": "Agent-facing CLI that records coding-agent working hours from host hooks and reports them",
+  "keywords": [
+    "TOON",
+    "agent",
+    "axi",
+    "hours",
+    "time-tracking"
+  ],
+  "homepage": "https://github.com/nikolauska/hour-tracker-axi",
+  "bugs": "https://github.com/nikolauska/hour-tracker-axi/issues",
+  "license": "MIT",
+  "author": "Niko Lehtovirta",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nikolauska/hour-tracker-axi.git"
+  },
+  "bin": {
+    "hours-axi": "dist/bin/hours-axi.js"
+  },
+  "files": [
+    "dist/",
+    "skills/"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "npm run clean && tsc -p tsconfig.json && node -e \"require('node:fs').chmodSync('dist/bin/hours-axi.js', 0o755)\"",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "lint": "oxlint && tsc -p tsconfig.json --noEmit",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "test": "npm run build && TZ=UTC node --test test/",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "axi-sdk-js": "^0.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "oxfmt": "^0.73.0",
+    "oxlint": "^1.81.0",
+    "typescript": "^7.0.2"
+  }
+}
