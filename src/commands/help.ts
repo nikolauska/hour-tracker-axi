@@ -1,3 +1,4 @@
+import { REPORT_HELP } from "./report.js";
 import { BLOCKS_HELP } from "./blocks.js";
 import { NOTE_HELP } from "./note.js";
 
@@ -7,6 +8,8 @@ const COMMANDS: Record<string, string> = {
   'note "<what>"':
     "Describe the work in the current block (agents: run at task start, on direction change, and at the end)",
   "blocks [--day <day>]": "List a day's blocks with ids, times, notes and refs",
+  "report [--week|--last-week|--day|--from --to] [--by] [--format]":
+    "Rounded hours per day and project, as TOON or pasteable CSV",
 };
 
 const NOTES = [
@@ -31,6 +34,7 @@ export function topLevelHelp(): string {
 }
 
 const COMMAND_HELP: Record<string, string> = {
+  report: REPORT_HELP,
   blocks: BLOCKS_HELP,
   note: NOTE_HELP,
 };
