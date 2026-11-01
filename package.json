@@ -34,7 +34,7 @@
     "lint": "oxlint && tsc -p tsconfig.json --noEmit",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "test": "npm run build && TZ=UTC node --test test/",
+    "test": "npm run build && TZ=UTC node --test 'test/**/*.test.js'",
     "prepack": "npm run build"
   },
   "dependencies": {
