@@ -1,0 +1,41 @@
+import { readFile } from "node:fs/promises";
+import { runAxiCli, type AxiCliCommand } from "axi-sdk-js";
+import { home } from "./commands/home.js";
+import { commandHelp, topLevelHelp } from "./commands/help.js";
+import type { Deps } from "./state.js";
+
+interface RunOptions extends Partial<Deps> {
+  stdout?: { write(chunk: string): unknown };
+  version?: string;
+}
+
+export async function main(): Promise<void> {
+  await run(process.argv.slice(2));
+}
+
+export async function run(argv: string[], options: RunOptions = {}): Promise<void> {
+  const deps: Deps = {
+    env: options.env ?? process.env,
+    now: options.now ?? Date.now,
+    cwd: options.cwd ?? process.cwd(),
+  };
+  const commands: Record<string, AxiCliCommand<undefined>> = {};
+
+  await runAxiCli({
+    argv,
+    commands,
+    description:
+      "Agent working-hours tracker: hooks record time, agents add notes, reports total it.",
+    getCommandHelp: commandHelp,
+    home: () => home(deps),
+    packageName: "@nikolauska/hour-tracker-axi",
+    stdout: options.stdout,
+    topLevelHelp: topLevelHelp(),
+    version: options.version ?? (await packageVersion()),
+  });
+}
+
+async function packageVersion(): Promise<string> {
+  const raw = await readFile(new URL("../package.json", import.meta.url), "utf8");
+  return String((JSON.parse(raw) as Record<string, unknown>).version ?? "dev");
+}
