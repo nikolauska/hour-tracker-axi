@@ -19,7 +19,7 @@ export const REPORT_HELP = [
   "notes:",
   "  hours are rounded per day and project to the configured step (default 15 min); exact is the unrounded sum",
   "  A row can round to 0 when little time was tracked; it is kept so nothing disappears silently",
-  "  Only agent-observed time is included; add meetings and other work with `hours-axi add`",
+  "  Includes agent-observed time and time added with `hours-axi add`; add meetings and other work no agent saw that way",
   "",
 ].join("\n");
 
