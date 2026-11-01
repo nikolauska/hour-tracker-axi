@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { AxiError, type AxiCliCommand } from "axi-sdk-js";
@@ -140,9 +140,20 @@ function withOurHooks(settings: Settings): Settings {
 }
 
 function writeSettings(path: string, settings: Settings): void {
-  mkdirSync(dirname(path), { recursive: true });
+  // Dotfile managers often symlink settings.json; renaming over the link would replace it
+  // with a plain file and silently detach it from the user's dotfiles, so write the target.
+  const target = realTarget(path);
+  mkdirSync(dirname(target), { recursive: true });
   // Write-then-rename so a crash mid-write can't leave Claude Code with a truncated settings file.
-  const temp = `${path}.hours-axi.tmp`;
+  const temp = `${target}.hours-axi.tmp`;
   writeFileSync(temp, `${JSON.stringify(settings, null, 2)}\n`);
-  renameSync(temp, path);
+  renameSync(temp, target);
+}
+
+function realTarget(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
 }

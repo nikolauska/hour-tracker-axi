@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { sandbox } from "./support/cli.js";
@@ -64,4 +64,18 @@ test("an unparseable settings file is left untouched", async () => {
   assert.equal(exitCode, 1);
   assert.match(output, /left unchanged/);
   assert.equal(readFileSync(settingsFile(s), "utf8"), "{ not json");
+});
+
+test("a symlinked settings file stays a symlink and its target gets the hooks", async () => {
+  const s = sandbox();
+  const real = join(s.root, "dotfiles", "settings.json");
+  mkdirSync(join(s.root, "dotfiles"), { recursive: true });
+  writeFileSync(real, '{"theme":"dark"}\n');
+  mkdirSync(s.env.CLAUDE_CONFIG_DIR, { recursive: true });
+  symlinkSync(real, settingsFile(s));
+  assert.equal((await s.cli("setup", "claude")).exitCode, 0);
+  assert.equal(lstatSync(settingsFile(s)).isSymbolicLink(), true);
+  const written = JSON.parse(readFileSync(real, "utf8"));
+  assert.equal(written.theme, "dark");
+  assert.ok(written.hooks.PostToolUse);
 });
