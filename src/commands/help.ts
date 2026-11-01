@@ -1,9 +1,9 @@
-import { SETUP_HELP } from "./setup.js";
 import { ADD_HELP } from "./add.js";
-import { DROP_HELP, EDIT_HELP } from "./edit.js";
-import { REPORT_HELP } from "./report.js";
 import { BLOCKS_HELP } from "./blocks.js";
+import { DROP_HELP, EDIT_HELP } from "./edit.js";
 import { NOTE_HELP } from "./note.js";
+import { REPORT_HELP } from "./report.js";
+import { SETUP_HELP } from "./setup.js";
 
 // Agent-facing usage lives here, not in the skill, so it can't drift from what the CLI does.
 const COMMANDS: Record<string, string> = {
@@ -22,12 +22,22 @@ const COMMANDS: Record<string, string> = {
 };
 
 const NOTES = [
-  "Working time is recorded automatically by Claude Code hooks; there is no start/stop timer to manage",
+  "Working time is recorded automatically by Claude Code hooks; there is no timer to start or stop",
+  "Agents: the useful part is the note. Run `hours-axi note` when a task starts, when it changes direction, and once at the end with a one-line summary",
+  "Notes end up in the user's hour report: plain outcome-focused words, a ticket id via --ref when there is one, no secrets",
+  "A block is a stretch of activity in one session; pauses longer than the idle gap (default 15 min) end it",
+  "edit, drop, add and setup change the user's hours or settings: run them only when the user asks",
+  "Empty results say so with their scope, e.g. `0 blocks on <day>`",
   "Exit codes: 0 success, 1 operational failure, 2 invalid usage",
   "Run `hours-axi <command> --help` for a command's flags and notes",
 ];
 
-const EXAMPLES = ["hours-axi", 'hours-axi note "Fix login redirect loop" --ref ABC-123'];
+const EXAMPLES = [
+  "hours-axi",
+  'hours-axi note "Fix login redirect loop" --ref ABC-123',
+  "hours-axi report --week",
+  "hours-axi report --last-week --format csv",
+];
 
 export function topLevelHelp(): string {
   return [
