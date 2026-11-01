@@ -46,7 +46,18 @@ export function loadSettings(env: Env = process.env): Settings {
       `Fix or remove ${path}`,
     ]);
   }
-  const settings = { ...DEFAULTS, ...parsed, projects: { ...parsed.projects } };
+  // Shape is checked up front so a hand-edited config fails with a pointer to the file
+  // instead of a TypeError deep inside block building.
+  if (!isObject(parsed)) {
+    throw new AxiError(`config must be a JSON object: ${path}`, "CONFIG_ERROR", [`Fix ${path}`]);
+  }
+  const projects = parsed.projects ?? {};
+  if (!isObject(projects) || !Object.values(projects).every((v) => typeof v === "string")) {
+    throw new AxiError(`config projects must map repo names to names`, "CONFIG_ERROR", [
+      `Fix projects in ${path}, e.g. { "my-repo": "CLIENT-PROJECT" }`,
+    ]);
+  }
+  const settings = { ...DEFAULTS, ...parsed, projects: { ...projects } };
   for (const key of ["idleGapMinutes", "roundMinutes"] as const) {
     if (!Number.isFinite(settings[key]) || settings[key] <= 0) {
       throw new AxiError(`config ${key} must be a positive number`, "CONFIG_ERROR", [
@@ -55,4 +66,8 @@ export function loadSettings(env: Env = process.env): Settings {
     }
   }
   return settings;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
