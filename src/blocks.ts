@@ -48,27 +48,27 @@ export function buildBlocks(events: HoursEvent[], config: Config): Block[] {
     }
   }
 
-  // Notes before overrides: an edit with --note is the user's final word and must replace agent notes.
-  for (const event of sortByTs(events)) {
-    if (event.type !== "note") continue;
-    const block = event.block
-      ? byId.get(event.block)
-      : blockForNote(blocks, event.project, Date.parse(event.ts), gap);
-    if (!block) continue;
-    if (!block.notes.includes(event.text)) block.notes.push(event.text);
-    if (event.ref && !block.refs.includes(event.ref)) block.refs.push(event.ref);
-  }
-
+  // One pass in log order: a correction only overrides what was recorded before it, so an
+  // agent note written after `edit --note` is still kept on the block.
   const dropped = new Set<string>();
   for (const event of sortByTs(events)) {
-    if (event.type === "drop") dropped.add(event.block);
-    if (event.type !== "edit") continue;
-    const block = byId.get(event.block);
-    if (!block) continue;
-    if (event.start) block.start = Date.parse(event.start);
-    if (event.end) block.end = Date.parse(event.end);
-    if (event.project) block.project = event.project;
-    if (event.note !== undefined) block.notes = event.note ? [event.note] : [];
+    if (event.type === "note") {
+      const block = event.block
+        ? byId.get(event.block)
+        : blockForNote(blocks, event.project, Date.parse(event.ts), gap);
+      if (!block) continue;
+      if (!block.notes.includes(event.text)) block.notes.push(event.text);
+      if (event.ref && !block.refs.includes(event.ref)) block.refs.push(event.ref);
+    } else if (event.type === "drop") {
+      dropped.add(event.block);
+    } else if (event.type === "edit") {
+      const block = byId.get(event.block);
+      if (!block) continue;
+      if (event.start) block.start = Date.parse(event.start);
+      if (event.end) block.end = Date.parse(event.end);
+      if (event.project) block.project = event.project;
+      if (event.note !== undefined) block.notes = event.note ? [event.note] : [];
+    }
   }
 
   return blocks

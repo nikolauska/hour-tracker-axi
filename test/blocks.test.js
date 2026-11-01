@@ -163,3 +163,19 @@ test("a block crossing midnight is credited to both days", () => {
   for (const a of allocate(blocks)) byDay[a.day] = (byDay[a.day] ?? 0) + a.ms;
   assert.deepEqual(byDay, { "2026-11-02": ms(5), "2026-11-03": ms(5) });
 });
+
+test("an edited note replaces earlier notes but keeps notes written after the edit", () => {
+  const base = [activity("a", "09:00"), activity("a", "09:12"), activity("a", "09:24")];
+  const [block] = buildBlocks(base, CONFIG);
+  const note = (hhmm, text) => ({ v: 1, type: "note", ts: T(hhmm), project: "alpha", text });
+  const blocks = buildBlocks(
+    [
+      ...base,
+      note("09:05", "Agent draft"),
+      { v: 1, type: "edit", ts: T("09:10"), block: block.id, note: "Release prep" },
+      note("09:20", "Add changelog"),
+    ],
+    CONFIG,
+  );
+  assert.deepEqual(blocks[0].notes, ["Release prep", "Add changelog"]);
+});

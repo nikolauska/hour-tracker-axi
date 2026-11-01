@@ -42,7 +42,7 @@ Notes are what turn hours into a report line. When the agent writes a note, it j
 
 Corrections are recorded on top of the original activity. They never rewrite it.
 
-- **Edit** changes a block's start, end, project, or notes. An edited note replaces the agent's notes on that block.
+- **Edit** changes a block's start, end, project, or notes. An edited note replaces the notes the block had up to that moment. Notes the agent writes afterwards are added to it as usual.
 - **Drop** leaves a block out of every report. Dropping a block that's already dropped succeeds and changes nothing.
 - **Add** records time no agent saw, like a meeting. Added time overlaps with agent blocks like any other block and is split the same way.
 
