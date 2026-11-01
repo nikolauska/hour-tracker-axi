@@ -25,9 +25,6 @@
     "skills/"
   ],
   "type": "module",
-  "engines": {
-    "node": ">=24"
-  },
   "publishConfig": {
     "access": "public"
   },
@@ -48,5 +45,8 @@
     "oxfmt": "^0.73.0",
     "oxlint": "^1.81.0",
     "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
