@@ -43,3 +43,30 @@ test("outside any repo the directory name is the project", () => {
   mkdirSync(join(root, "gamma"));
   assert.equal(detectProject(join(root, "gamma")).project, "gamma");
 });
+
+test("a worktree of a bare repo reports the bare repo's name", () => {
+  const root = tempRoot();
+  const wtGit = join(root, "code", "alpha.git", "worktrees", "main");
+  mkdirSync(wtGit, { recursive: true });
+  writeFileSync(join(wtGit, "commondir"), "../..\n");
+  writeFileSync(join(wtGit, "HEAD"), "ref: refs/heads/main\n");
+  mkdirSync(join(root, "code", "alpha-main"));
+  writeFileSync(join(root, "code", "alpha-main", ".git"), `gitdir: ${wtGit}\n`);
+  assert.deepEqual(detectProject(join(root, "code", "alpha-main")), {
+    project: "alpha",
+    branch: "main",
+  });
+});
+
+test("a submodule reports its own name, not the parent's modules folder", () => {
+  const root = tempRoot();
+  const modGit = join(root, "parent", ".git", "modules", "beta");
+  mkdirSync(modGit, { recursive: true });
+  writeFileSync(join(modGit, "HEAD"), "ref: refs/heads/main\n");
+  mkdirSync(join(root, "parent", "beta"));
+  writeFileSync(join(root, "parent", "beta", ".git"), "gitdir: ../.git/modules/beta\n");
+  assert.deepEqual(detectProject(join(root, "parent", "beta")), {
+    project: "beta",
+    branch: "main",
+  });
+});

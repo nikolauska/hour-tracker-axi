@@ -32,8 +32,16 @@ function fromGitEntry(dir: string): ProjectInfo | undefined {
   if (!match) return { project: basename(dir) };
   const gitDir = isAbsolute(match[1].trim()) ? match[1].trim() : resolve(dir, match[1].trim());
   const common = safeRead(join(gitDir, "commondir"))?.trim();
-  const mainGitDir = common ? resolve(gitDir, common) : gitDir;
-  return { project: basename(dirname(mainGitDir)), branch: readBranch(gitDir) };
+  // No commondir means a submodule or --separate-git-dir checkout: the directory is the repo.
+  if (!common) return { project: basename(dir), branch: readBranch(gitDir) };
+  return { project: repoName(resolve(gitDir, common)), branch: readBranch(gitDir) };
+}
+
+// A normal repo keeps its git dir at <repo>/.git, a bare repo is <repo>.git or a hidden
+// <repo>/.bare, and a submodule's is .git/modules/<name>; all should report as <repo>/<name>.
+function repoName(gitDir: string): string {
+  const name = basename(gitDir);
+  return name.startsWith(".") ? basename(dirname(gitDir)) : name.replace(/\.git$/, "");
 }
 
 function readBranch(gitDir: string): string | undefined {
