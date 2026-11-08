@@ -46,6 +46,16 @@ Corrections are recorded on top of the original activity. They never rewrite it.
 - **Drop** leaves a block out of every report. Dropping a block that's already dropped succeeds and changes nothing.
 - **Add** records time no agent saw, like a meeting. Added time overlaps with agent blocks like any other block and is split the same way.
 
+### When settings change the blocks
+
+Changing the idle gap can split or merge past blocks, and a block id only exists while its block does. Corrections handle that like this:
+
+- A drop remembers the exact stretch of activity it covered, so that time stays out of reports whatever the idle gap is. The dropped stretch also acts as a break: a wider gap never joins the time on both sides of it back into one block.
+- A note given to a specific block moves to the block that now covers the same time.
+- An edit only applies to the block it named. If that block no longer exists, the edit is not guessed onto another block, because moving a start time or project onto a differently split block could change time you never touched. `hours-axi` lists such corrections as orphaned so you can redo them.
+
+Drops recorded by older versions only remember the block id. If that block disappears, they are listed as orphaned too.
+
 ## What is not counted
 
 Only time an agent was active, plus time you add by hand. Work done without an agent (reading, reviewing, thinking, meetings) is invisible until you add it. The report is a strong starting point, not a complete record by itself.

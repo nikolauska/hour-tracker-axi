@@ -2,6 +2,7 @@ import type { AxiCliCommand } from "axi-sdk-js";
 import { parseCommand } from "../args.js";
 import { eventsPath } from "../config.js";
 import { notFound, validation } from "../errors.js";
+import { anchorOf } from "../blocks.js";
 import { appendEvent } from "../events.js";
 import { findBlock, loadState, type Deps } from "../state.js";
 import { clock, dayKey, parseClock } from "../time.js";
@@ -78,11 +79,15 @@ export function dropCommand(deps: Deps): AxiCliCommand<undefined> {
     if (positionals.length === 1 && already)
       return { dropped: positionals[0], status: "already dropped" };
     const block = requireBlock(deps, positionals, "drop");
+    const anchor = anchorOf(block);
     appendEvent(eventsPath(deps.env), {
       v: 1,
       type: "drop",
       ts: new Date(deps.now()).toISOString(),
       block: block.id,
+      // The project is kept so a dropped block can still be described once its activity
+      // no longer forms a block.
+      ...(anchor ? { anchor, project: block.project } : {}),
     });
     return { dropped: block.id, project: block.project, day: dayKey(block.start) };
   };

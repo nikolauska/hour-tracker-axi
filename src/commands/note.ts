@@ -4,7 +4,7 @@ import { eventsPath } from "../config.js";
 import { notFound, validation } from "../errors.js";
 import { appendEvent, type NoteEvent } from "../events.js";
 import { detectProject } from "../project.js";
-import { blockForNote } from "../blocks.js";
+import { anchorOf, blockForNote } from "../blocks.js";
 import { findBlock, loadState, type Deps } from "../state.js";
 
 export const NOTE_HELP = [
@@ -31,9 +31,11 @@ export function noteCommand(deps: Deps): AxiCliCommand<undefined> {
     if (!text) validation("note text is required", 'Run `hours-axi note "<what>"`');
 
     const blockId = flags.block as string | undefined;
-    if (blockId && !findBlock(loadState(deps), blockId)) {
+    const target = blockId ? findBlock(loadState(deps), blockId) : undefined;
+    if (blockId && !target) {
       notFound(`no block ${blockId}`, "Run `hours-axi blocks` to list block ids");
     }
+    const anchor = target && anchorOf(target);
     const project = (flags.project as string | undefined) ?? detectProject(deps.cwd).project;
     const event: NoteEvent = {
       v: 1,
@@ -43,6 +45,7 @@ export function noteCommand(deps: Deps): AxiCliCommand<undefined> {
       text,
       ...(flags.ref ? { ref: flags.ref as string } : {}),
       ...(blockId ? { block: blockId } : {}),
+      ...(anchor ? { anchor } : {}),
     };
     appendEvent(eventsPath(deps.env), event);
 

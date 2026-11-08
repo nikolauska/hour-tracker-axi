@@ -13,6 +13,15 @@ export interface ActivityEvent {
   branch?: string;
 }
 
+// The raw stretch of activity a correction was aimed at. Block ids come from the first event
+// of a block, so a config change that re-splits blocks can make an id disappear; the anchor
+// still identifies the same activity.
+export interface Anchor {
+  session: string;
+  start: string;
+  end: string;
+}
+
 export interface NoteEvent {
   v: 1;
   type: "note";
@@ -21,6 +30,7 @@ export interface NoteEvent {
   text: string;
   ref?: string;
   block?: string;
+  anchor?: Anchor;
 }
 
 export interface EditEvent {
@@ -39,6 +49,8 @@ export interface DropEvent {
   type: "drop";
   ts: string;
   block: string;
+  anchor?: Anchor;
+  project?: string;
 }
 
 export interface AddEvent {

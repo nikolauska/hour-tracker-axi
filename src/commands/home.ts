@@ -34,6 +34,11 @@ export function home(deps: Deps): Record<string, unknown> {
       'Run `hours-axi note "<what was done>" --block <id>` to label a block that has no note',
     );
   }
+  if (state.orphans.length > 0) {
+    help.push(
+      "Orphaned corrections point at blocks that no longer exist, usually after idleGapMinutes changed; run `hours-axi blocks --day <day>` and redo them (only when the user asks)",
+    );
+  }
   help.push("Run `hours-axi report --week` for this week's totals");
 
   return {
@@ -57,6 +62,15 @@ export function home(deps: Deps): Record<string, unknown> {
           note: b.notes.join("; ") || "(none)",
         }))
       : `0 blocks on ${today}`,
+    ...(state.orphans.length > 0
+      ? {
+          orphaned: state.orphans.map((o) => ({
+            type: o.type,
+            block: o.block,
+            recorded: `${dayKey(Date.parse(o.ts))} ${clock(Date.parse(o.ts))}`,
+          })),
+        }
+      : {}),
     help,
   };
 }

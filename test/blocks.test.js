@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { allocate, buildBlocks } from "../dist/blocks.js";
+import { allocate, anchorOf, buildBlocks, deriveBlocks } from "../dist/blocks.js";
 
 const CONFIG = { idleGapMinutes: 15, roundMinutes: 15 };
 const T = (hhmm, day = "2026-11-02") => `${day}T${hhmm}:00.000Z`;
@@ -207,5 +207,79 @@ test("colliding block ids get a suffix so a drop hits only one block", async () 
   assert.deepEqual(
     kept.map((b) => b.id),
     [ids[1]],
+  );
+});
+
+// 09:00-09:10 and 10:00-10:10 are two blocks at a 15 min gap and one block at 60 min.
+const TWO = [
+  activity("a", "09:00"),
+  activity("a", "09:10"),
+  activity("a", "10:00"),
+  activity("a", "10:10"),
+];
+const WIDE = { ...CONFIG, idleGapMinutes: 60 };
+const dropOf = (block) => ({
+  v: 1,
+  type: "drop",
+  ts: T("12:00"),
+  block: block.id,
+  anchor: anchorOf(block),
+  project: block.project,
+});
+const spans = (blocks) =>
+  blocks.map((b) => [new Date(b.start).toISOString(), new Date(b.end).toISOString()]);
+
+test("a dropped later block stays dropped after a wider idle gap merges blocks", () => {
+  const [, second] = buildBlocks(TWO, CONFIG);
+  const blocks = buildBlocks([...TWO, dropOf(second)], WIDE);
+  assert.deepEqual(spans(blocks), [[T("09:00"), T("09:10")]]);
+});
+
+test("a dropped earlier block does not take the next block with it after a wider gap", () => {
+  const [first] = buildBlocks(TWO, CONFIG);
+  const blocks = buildBlocks([...TWO, dropOf(first)], WIDE);
+  assert.deepEqual(spans(blocks), [[T("10:00"), T("10:10")]]);
+});
+
+test("a dropped stretch splits a block in two when a narrower gap is used later", () => {
+  const events = [...TWO, activity("a", "11:00"), activity("a", "11:10")];
+  const [, middle] = buildBlocks(events, CONFIG);
+  const blocks = buildBlocks([...events, dropOf(middle)], WIDE);
+  assert.deepEqual(spans(blocks), [
+    [T("09:00"), T("09:10")],
+    [T("11:00"), T("11:10")],
+  ]);
+});
+
+test("a note for a block whose id is gone lands on the block now covering that time", () => {
+  const [, second] = buildBlocks(TWO, CONFIG);
+  const note = {
+    v: 1,
+    type: "note",
+    ts: T("12:00"),
+    project: "alpha",
+    text: "Review",
+    block: second.id,
+    anchor: anchorOf(second),
+  };
+  const { blocks, orphans } = deriveBlocks([...TWO, note], WIDE);
+  assert.deepEqual(blocks[0].notes, ["Review"]);
+  assert.deepEqual(orphans, []);
+});
+
+test("an edit or legacy drop whose block is gone is reported, not silently skipped", () => {
+  const [, second] = buildBlocks(TWO, CONFIG);
+  const { blocks, orphans } = deriveBlocks(
+    [
+      ...TWO,
+      { v: 1, type: "edit", ts: T("12:00"), block: second.id, note: "Release" },
+      { v: 1, type: "drop", ts: T("12:01"), block: second.id },
+    ],
+    WIDE,
+  );
+  assert.deepEqual(blocks[0].notes, []);
+  assert.deepEqual(
+    orphans.map((o) => o.type),
+    ["edit", "drop"],
   );
 });

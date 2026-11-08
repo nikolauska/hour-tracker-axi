@@ -23,3 +23,16 @@ test("the home view shows today's blocks, the running one, and unlabeled ones", 
   assert.match(output, /blocks\[2\]/);
   assert.match(output, /--block <id>/);
 });
+
+test("the home view lists corrections whose block no longer exists", async () => {
+  const s = sandbox("2026-11-02T12:00:00.000Z");
+  s.ping("a", "2026-11-02T09:00:00.000Z");
+  s.ping("a", "2026-11-02T09:10:00.000Z");
+  s.append({ v: 1, type: "edit", ts: "2026-11-02T11:00:00.000Z", block: "b-000000", note: "x" });
+  const { output } = await s.cli();
+  assert.match(
+    output,
+    /orphaned\[1\]\{type,block,recorded\}:\n\s+edit,b-000000,"2026-11-02 11:00"/,
+  );
+  assert.match(output, /redo them/);
+});

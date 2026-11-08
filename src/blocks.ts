@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ActivityEvent, HoursEvent } from "./events.js";
+import type { ActivityEvent, Anchor, HoursEvent } from "./events.js";
 import { dayKey, nextLocalMidnight } from "./time.js";
 
 export interface Config {
@@ -18,6 +18,21 @@ export interface Block {
   notes: string[];
   refs: string[];
   manual: boolean;
+  // First and last recorded activity, before any edit; what a correction's anchor points at.
+  raw?: { start: number; end: number };
+}
+
+// A correction whose block no longer exists, usually because idleGapMinutes changed and
+// the blocks were split differently. Surfaced so it never stops applying unnoticed.
+export interface Orphan {
+  type: "edit" | "drop" | "note";
+  block: string;
+  ts: string;
+}
+
+export interface Derived {
+  blocks: Block[];
+  orphans: Orphan[];
 }
 
 export interface Allocation {
@@ -30,12 +45,22 @@ export interface Allocation {
 // Blocks are always derived from the raw log, so changing a rule (like the idle gap)
 // recalculates old weeks correctly instead of being stuck with stored results.
 export function buildBlocks(events: HoursEvent[], config: Config): Block[] {
+  return deriveBlocks(events, config).blocks;
+}
+
+export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
   const gap = config.idleGapMinutes * 60_000;
   // Aliases are resolved here, on read, so renaming a project in config fixes past weeks too,
   // and a note or edit can use either the repo name or the report name.
   const name = (project: string) => config.projects?.[project] ?? project;
-  const blocks = activityBlocks(events, gap, name);
+  // An anchored drop removes the activity itself rather than a block id, so it keeps covering
+  // the same time however the idle gap later splits or merges blocks.
+  const excluded: Anchor[] = [];
+  for (const event of events)
+    if (event.type === "drop" && event.anchor) excluded.push(event.anchor);
+  const blocks = activityBlocks(events, gap, name, excluded);
   const byId = new Map(blocks.map((block) => [block.id, block]));
+  const orphans: Orphan[] = [];
 
   for (const event of events) {
     if (event.type === "add") {
@@ -58,17 +83,27 @@ export function buildBlocks(events: HoursEvent[], config: Config): Block[] {
   const dropped = new Set<string>();
   for (const event of sortByTs(events)) {
     if (event.type === "note") {
-      const block = event.block
-        ? byId.get(event.block)
-        : blockForNote(blocks, name(event.project), Date.parse(event.ts), gap);
+      let block: Block | undefined;
+      if (event.block) {
+        // A note only adds text, so landing on whichever block now covers that time is safe.
+        block = byId.get(event.block) ?? (event.anchor && covering(blocks, event.anchor));
+        if (!block) orphans.push({ type: "note", block: event.block, ts: event.ts });
+      } else block = blockForNote(blocks, name(event.project), Date.parse(event.ts), gap);
       if (!block) continue;
       if (!block.notes.includes(event.text)) block.notes.push(event.text);
       if (event.ref && !block.refs.includes(event.ref)) block.refs.push(event.ref);
     } else if (event.type === "drop") {
-      dropped.add(event.block);
+      if (event.anchor) continue;
+      if (byId.has(event.block)) dropped.add(event.block);
+      else orphans.push({ type: "drop", block: event.block, ts: event.ts });
     } else if (event.type === "edit") {
+      // No fallback for edits: moving a start or project change onto a differently split
+      // block could rewrite time the user never touched, so a lost target is reported instead.
       const block = byId.get(event.block);
-      if (!block) continue;
+      if (!block) {
+        orphans.push({ type: "edit", block: event.block, ts: event.ts });
+        continue;
+      }
       if (event.start) block.start = Date.parse(event.start);
       if (event.end) block.end = Date.parse(event.end);
       if (event.project) block.project = name(event.project);
@@ -76,15 +111,38 @@ export function buildBlocks(events: HoursEvent[], config: Config): Block[] {
     }
   }
 
+  return {
+    blocks: blocks
+      .filter((block) => !dropped.has(block.id) && block.end > block.start)
+      .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id)),
+    orphans,
+  };
+}
+
+// The anchor that a correction should store for this block, if it has recorded activity.
+export function anchorOf(block: Block): Anchor | undefined {
+  if (!block.session || !block.raw) return undefined;
+  return {
+    session: block.session,
+    start: new Date(block.raw.start).toISOString(),
+    end: new Date(block.raw.end).toISOString(),
+  };
+}
+
+function covering(blocks: Block[], anchor: Anchor): Block | undefined {
+  const [from, to] = [Date.parse(anchor.start), Date.parse(anchor.end)];
+  const overlap = (b: Block) =>
+    b.raw ? Math.min(to, b.raw.end) - Math.max(from, b.raw.start) : -1;
   return blocks
-    .filter((block) => !dropped.has(block.id) && block.end > block.start)
-    .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
+    .filter((b) => b.session === anchor.session && overlap(b) >= 0)
+    .sort((a, b) => overlap(b) - overlap(a))[0];
 }
 
 function activityBlocks(
   events: HoursEvent[],
   gap: number,
   name: (project: string) => string,
+  excluded: Anchor[],
 ): Block[] {
   const bySession = new Map<string, ActivityEvent[]>();
   for (const event of events) {
@@ -113,11 +171,23 @@ function activityBlocks(
         notes: [],
         refs: [],
         manual: false,
+        raw: { start, end },
       });
     };
+    const holes = excluded
+      .filter((a) => a.session === session)
+      .map((a) => [Date.parse(a.start), Date.parse(a.end)]);
     for (const event of list) {
+      const ts = Date.parse(event.ts);
+      // A dropped stretch is a hard break: a wider idle gap must not bridge the time around
+      // it and quietly count the dropped minutes again.
+      if (holes.some(([from, to]) => ts >= from && ts <= to)) {
+        flush();
+        run = [];
+        continue;
+      }
       const last = run[run.length - 1];
-      if (last && Date.parse(event.ts) - Date.parse(last.ts) > gap) {
+      if (last && ts - Date.parse(last.ts) > gap) {
         flush();
         run = [];
       }
