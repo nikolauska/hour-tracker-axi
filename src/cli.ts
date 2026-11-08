@@ -3,7 +3,7 @@ import { runAxiCli, type AxiCliCommand } from "axi-sdk-js";
 import { home } from "./commands/home.js";
 import { setupCommand } from "./commands/setup.js";
 import { addCommand } from "./commands/add.js";
-import { dropCommand, editCommand } from "./commands/edit.js";
+import { dropCommand, editCommand, restoreCommand } from "./commands/edit.js";
 import { reportCommand } from "./commands/report.js";
 import { blocksCommand } from "./commands/blocks.js";
 import { commandHelp, topLevelHelp } from "./commands/help.js";
@@ -30,6 +30,7 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<voi
     add: addCommand(deps),
     edit: editCommand(deps),
     drop: dropCommand(deps),
+    restore: restoreCommand(deps),
     report: reportCommand(deps),
     blocks: blocksCommand(deps),
     note: noteCommand(deps),

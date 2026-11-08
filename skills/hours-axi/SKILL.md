@@ -15,5 +15,5 @@ Working time is recorded automatically. Your part is describing the work.
 `hours-axi --help` explains when to write notes, what to put in them, and every
 command. Follow the `help` lines at the end of each response.
 
-Run commands that change the user's hours or settings (`edit`, `drop`, `add`,
-`setup`) only when the user asks.
+Run commands that change the user's hours or settings (`edit`, `drop`,
+`restore`, `add`, `setup`) only when the user asks.

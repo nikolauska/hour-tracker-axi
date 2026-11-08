@@ -15,6 +15,7 @@ export interface State {
   settings: Settings;
   events: HoursEvent[];
   blocks: Block[];
+  dropped: Block[];
   orphans: Orphan[];
   allocations: Allocation[];
 }
@@ -22,8 +23,8 @@ export interface State {
 export function loadState(deps: Deps): State {
   const settings = loadSettings(deps.env);
   const events = readEvents(eventsPath(deps.env));
-  const { blocks, orphans } = deriveBlocks(events, settings);
-  return { settings, events, blocks, orphans, allocations: allocate(blocks) };
+  const { blocks, dropped, orphans } = deriveBlocks(events, settings);
+  return { settings, events, blocks, dropped, orphans, allocations: allocate(blocks) };
 }
 
 export function findBlock(state: State, id: string): Block | undefined {

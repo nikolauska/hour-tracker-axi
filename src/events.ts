@@ -42,6 +42,7 @@ export interface EditEvent {
   end?: string;
   project?: string;
   note?: string;
+  ref?: string;
 }
 
 export interface DropEvent {
@@ -53,6 +54,14 @@ export interface DropEvent {
   project?: string;
 }
 
+// Undoes an earlier drop of the same block id; corrections are never rewritten, only countered.
+export interface RestoreEvent {
+  v: 1;
+  type: "restore";
+  ts: string;
+  block: string;
+}
+
 export interface AddEvent {
   v: 1;
   type: "add";
@@ -62,9 +71,16 @@ export interface AddEvent {
   end: string;
   project: string;
   note?: string;
+  ref?: string;
 }
 
-export type HoursEvent = ActivityEvent | NoteEvent | EditEvent | DropEvent | AddEvent;
+export type HoursEvent =
+  | ActivityEvent
+  | NoteEvent
+  | EditEvent
+  | DropEvent
+  | RestoreEvent
+  | AddEvent;
 
 // One JSON line per write: a single small O_APPEND write is not interleaved with
 // writes from parallel hook processes, so no lock is needed.

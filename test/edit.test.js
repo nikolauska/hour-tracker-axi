@@ -59,3 +59,28 @@ test("drop removes a block from reports", async () => {
   assert.match(again.output, /already dropped/);
   assert.equal((await s.cli("drop", "b-000000")).exitCode, 1);
 });
+
+test("a dropped block is listed with --all and restore counts it again", async () => {
+  const s = withBlock();
+  const id = await blockId(s);
+  await s.cli("drop", id);
+  const all = await s.cli("blocks", "--all");
+  assert.match(
+    all.output,
+    new RegExp(`${id},alpha,"09:00","09:10",0m,\\(none\\),\\(none\\),false,true`),
+  );
+  assert.match(all.output, /hours-axi restore <id>/);
+  assert.match((await s.cli("restore", id)).output, new RegExp(`restored: ${id}`));
+  assert.match((await s.cli("blocks")).output, new RegExp(`${id},alpha,"09:00","09:10",10m`));
+  assert.match((await s.cli("restore", id)).output, /not dropped/);
+  assert.match((await s.cli("drop", id)).output, new RegExp(`dropped: ${id}\\n`));
+  assert.equal((await s.cli("restore", "b-000000")).exitCode, 1);
+});
+
+test("edit --ref replaces a block's ticket ids and an empty value clears them", async () => {
+  const s = withBlock();
+  const id = await blockId(s);
+  await s.cli("note", "Work", "--block", id, "--ref", "TICKET-1");
+  assert.match((await s.cli("edit", id, "--ref", "TICKET-2")).output, /ref: TICKET-2/);
+  assert.match((await s.cli("edit", id, "--ref", "")).output, /ref: \(none\)/);
+});

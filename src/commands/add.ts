@@ -9,12 +9,13 @@ import type { Deps } from "../state.js";
 import { clock, parseClock, parseDay } from "../time.js";
 
 export const ADD_HELP = [
-  'usage: hours-axi add --from HH:MM --to HH:MM [--day <day>] [--project <name>] [--note "<text>"]',
+  'usage: hours-axi add --from HH:MM --to HH:MM [--day <day>] [--project <name>] [--note "<text>"] [--ref <ticket>]',
   "flags:",
-  "  --from/--to HH:MM: Start and end on the given day",
+  "  --from/--to HH:MM: Start and end on the given day; a full ISO timestamp (e.g. 2026-11-03T00:30:00+02:00) crosses midnight",
   "  --day <day>: today (default), yesterday or YYYY-MM-DD",
   "  --project <name>: Defaults to the current directory's repo",
   '  --note "<text>": What the time was spent on',
+  "  --ref <ticket>: Ticket or issue id shown next to the note in reports",
   "notes:",
   "  For work no agent saw, like meetings or calls; run only when the user asks",
   "  Overlap with agent blocks is split like any other overlap",
@@ -29,6 +30,7 @@ export function addCommand(deps: Deps): AxiCliCommand<undefined> {
       day: { type: "string" },
       project: { type: "string" },
       note: { type: "string" },
+      ref: { type: "string" },
     });
     if (positionals.length)
       validation(`unexpected argument: ${positionals[0]}`, "Run `hours-axi add --help`");
@@ -41,7 +43,7 @@ export function addCommand(deps: Deps): AxiCliCommand<undefined> {
     const start = parseClock(String(flags.from), day);
     const end = parseClock(String(flags.to), day);
     if (start === undefined || end === undefined)
-      validation("--from/--to must be HH:MM", "Run `hours-axi add --help`");
+      validation("--from/--to must be HH:MM or an ISO timestamp", "Run `hours-axi add --help`");
     if (end <= start) validation("--to must be after --from", "Run `hours-axi add --help`");
 
     // Random rather than derived ids: two identical manual entries are two real meetings.
@@ -62,6 +64,7 @@ export function addCommand(deps: Deps): AxiCliCommand<undefined> {
       end: new Date(end).toISOString(),
       project,
       ...(flags.note ? { note: String(flags.note) } : {}),
+      ...(flags.ref ? { ref: String(flags.ref) } : {}),
     });
     return { added: id, day, project, start: clock(start), end: clock(end) };
   };

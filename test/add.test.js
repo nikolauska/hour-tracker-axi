@@ -32,3 +32,26 @@ test("add validates times", async () => {
   assert.equal((await s.cli("add", "--from", "10:00", "--to", "09:00")).exitCode, 2);
   assert.equal((await s.cli("add", "--from", "25:00", "--to", "26:00")).exitCode, 2);
 });
+
+test("add takes a ticket id and ISO timestamps that cross midnight", async () => {
+  const s = sandbox("2026-11-03T12:00:00.000Z");
+  const { output, exitCode } = await s.cli(
+    "add",
+    "--from",
+    "2026-11-02T23:00:00.000Z",
+    "--to",
+    "2026-11-03T01:00:00.000Z",
+    "--note",
+    "Release",
+    "--ref",
+    "TICKET-1",
+  );
+  assert.equal(exitCode, 0, output);
+  const csv = (
+    await s.cli("report", "--from", "2026-11-02", "--to", "2026-11-03", "--format", "csv")
+  ).output;
+  assert.match(
+    csv,
+    /2026-11-02,alpha,1\.00,Release,TICKET-1\n2026-11-03,alpha,1\.00,Release,TICKET-1/,
+  );
+});

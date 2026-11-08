@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ActivityEvent, Anchor, HoursEvent } from "./events.js";
+import type { ActivityEvent, Anchor, DropEvent, HoursEvent } from "./events.js";
 import { dayKey, nextLocalMidnight } from "./time.js";
 
 export interface Config {
@@ -32,6 +32,8 @@ export interface Orphan {
 
 export interface Derived {
   blocks: Block[];
+  // Blocks currently left out by a drop, so they can be shown and restored.
+  dropped: Block[];
   orphans: Orphan[];
 }
 
@@ -53,11 +55,16 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
   // Aliases are resolved here, on read, so renaming a project in config fixes past weeks too,
   // and a note or edit can use either the repo name or the report name.
   const name = (project: string) => config.projects?.[project] ?? project;
+  // Drops and restores are settled first, in log order, because an anchored drop has to be
+  // known before activity is grouped into blocks.
+  const drops = new Map<string, DropEvent>();
+  for (const event of sortByTs(events)) {
+    if (event.type === "drop") drops.set(event.block, event);
+    else if (event.type === "restore") drops.delete(event.block);
+  }
   // An anchored drop removes the activity itself rather than a block id, so it keeps covering
   // the same time however the idle gap later splits or merges blocks.
-  const excluded: Anchor[] = [];
-  for (const event of events)
-    if (event.type === "drop" && event.anchor) excluded.push(event.anchor);
+  const excluded = [...drops.values()].flatMap((d) => (d.anchor ? [d.anchor] : []));
   const blocks = activityBlocks(events, gap, name, excluded);
   const byId = new Map(blocks.map((block) => [block.id, block]));
   const orphans: Orphan[] = [];
@@ -70,7 +77,7 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
         start: Date.parse(event.start),
         end: Date.parse(event.end),
         notes: event.note ? [event.note] : [],
-        refs: [],
+        refs: event.ref ? [event.ref] : [],
         manual: true,
       };
       blocks.push(block);
@@ -80,7 +87,6 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
 
   // One pass in log order: a correction only overrides what was recorded before it, so an
   // agent note written after `edit --note` is still kept on the block.
-  const dropped = new Set<string>();
   for (const event of sortByTs(events)) {
     if (event.type === "note") {
       let block: Block | undefined;
@@ -92,10 +98,6 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
       if (!block) continue;
       if (!block.notes.includes(event.text)) block.notes.push(event.text);
       if (event.ref && !block.refs.includes(event.ref)) block.refs.push(event.ref);
-    } else if (event.type === "drop") {
-      if (event.anchor) continue;
-      if (byId.has(event.block)) dropped.add(event.block);
-      else orphans.push({ type: "drop", block: event.block, ts: event.ts });
     } else if (event.type === "edit") {
       // No fallback for edits: moving a start or project change onto a differently split
       // block could rewrite time the user never touched, so a lost target is reported instead.
@@ -108,13 +110,27 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
       if (event.end) block.end = Date.parse(event.end);
       if (event.project) block.project = name(event.project);
       if (event.note !== undefined) block.notes = event.note ? [event.note] : [];
+      if (event.ref !== undefined) block.refs = event.ref ? [event.ref] : [];
     }
   }
 
+  const dropped: Block[] = [];
+  for (const drop of drops.values()) {
+    if (drop.anchor) {
+      dropped.push(fromAnchor(drop.block, drop.anchor, name(drop.project ?? "unknown")));
+      continue;
+    }
+    const block = byId.get(drop.block);
+    if (block) dropped.push(block);
+    else orphans.push({ type: "drop", block: drop.block, ts: drop.ts });
+  }
+  const droppedIds = new Set(dropped.map((b) => b.id));
+  const byStart = (a: Block, b: Block) => a.start - b.start || a.id.localeCompare(b.id);
   return {
     blocks: blocks
-      .filter((block) => !dropped.has(block.id) && block.end > block.start)
-      .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id)),
+      .filter((block) => !droppedIds.has(block.id) && block.end > block.start)
+      .sort(byStart),
+    dropped: dropped.sort(byStart),
     orphans,
   };
 }
@@ -126,6 +142,21 @@ export function anchorOf(block: Block): Anchor | undefined {
     session: block.session,
     start: new Date(block.raw.start).toISOString(),
     end: new Date(block.raw.end).toISOString(),
+  };
+}
+
+function fromAnchor(id: string, anchor: Anchor, project: string): Block {
+  const [start, end] = [Date.parse(anchor.start), Date.parse(anchor.end)];
+  return {
+    id,
+    project,
+    session: anchor.session,
+    start,
+    end,
+    notes: [],
+    refs: [],
+    manual: false,
+    raw: { start, end },
   };
 }
 

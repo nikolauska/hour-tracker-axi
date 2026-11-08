@@ -1,6 +1,6 @@
 import { ADD_HELP } from "./add.js";
 import { BLOCKS_HELP } from "./blocks.js";
-import { DROP_HELP, EDIT_HELP } from "./edit.js";
+import { DROP_HELP, EDIT_HELP, RESTORE_HELP } from "./edit.js";
 import { NOTE_HELP } from "./note.js";
 import { REPORT_HELP } from "./report.js";
 import { SETUP_HELP } from "./setup.js";
@@ -10,12 +10,15 @@ const COMMANDS: Record<string, string> = {
   "(none)": "Show today's tracked time, the running block, and blocks without a note",
   'note "<what>"':
     "Describe the work in the current block (agents: run at task start, on direction change, and at the end)",
-  "blocks [--day <day>]": "List a day's blocks with ids, times, notes and refs",
+  "blocks [--day <day>] [--all]":
+    "List a day's blocks with ids, times, notes and refs; --all includes dropped ones",
   "report [--week|--last-week|--month [YYYY-MM]|--last-month|--day|--from --to] [--by] [--format]":
     "Rounded hours per day and project, as TOON or pasteable CSV",
-  "edit <id> [--start] [--end] [--project] [--note]": "Correct a block (only when the user asks)",
+  "edit <id> [--start] [--end] [--project] [--note] [--ref]":
+    "Correct a block (only when the user asks)",
   "drop <id>": "Exclude a block from reports (only when the user asks)",
-  "add --from HH:MM --to HH:MM [--day] [--project] [--note]":
+  "restore <id>": "Undo a drop (only when the user asks)",
+  "add --from HH:MM --to HH:MM [--day] [--project] [--note] [--ref]":
     "Add time no agent saw, like meetings (only when the user asks)",
   "setup claude [--remove]":
     "Install or remove the Claude Code hooks that record time (edits user settings; only when the user asks)",
@@ -26,7 +29,7 @@ const NOTES = [
   "Agents: the useful part is the note. Run `hours-axi note` when a task starts, when it changes direction, and once at the end with a one-line summary",
   "Notes end up in the user's hour report: plain outcome-focused words, a ticket id via --ref when there is one, no secrets",
   "A block is a stretch of activity in one session; pauses longer than the idle gap (default 15 min) end it",
-  "edit, drop, add and setup change the user's hours or settings: run them only when the user asks",
+  "edit, drop, restore, add and setup change the user's hours or settings: run them only when the user asks",
   "Empty results say so with their scope, e.g. `0 blocks on <day>`",
   "Exit codes: 0 success, 1 operational failure, 2 invalid usage",
   "Run `hours-axi <command> --help` for a command's flags and notes",
@@ -57,6 +60,7 @@ const COMMAND_HELP: Record<string, string> = {
   add: ADD_HELP,
   edit: EDIT_HELP,
   drop: DROP_HELP,
+  restore: RESTORE_HELP,
   report: REPORT_HELP,
   blocks: BLOCKS_HELP,
   note: NOTE_HELP,
