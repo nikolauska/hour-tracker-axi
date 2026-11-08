@@ -1,11 +1,11 @@
 import type { AxiCliCommand } from "axi-sdk-js";
 import { parseCommand } from "../args.js";
-import { eventsPath } from "../config.js";
+import { eventsPath, loadSettings } from "../config.js";
 import { notFound, validation } from "../errors.js";
-import { appendEvent, type NoteEvent } from "../events.js";
+import { appendEvent, readEvents, type NoteEvent } from "../events.js";
 import { detectProject } from "../project.js";
 import { anchorOf, blockForNote, projectName } from "../blocks.js";
-import { findBlock, loadState, type Deps } from "../state.js";
+import { findBlock, stateFrom, type Deps } from "../state.js";
 
 export const NOTE_HELP = [
   'usage: hours-axi note "<what>" [--ref <ticket>] [--block <id>] [--project <name>]',
@@ -31,7 +31,10 @@ export function noteCommand(deps: Deps): AxiCliCommand<undefined> {
     if (!text) validation("note text is required", 'Run `hours-axi note "<what>"`');
 
     const blockId = flags.block as string | undefined;
-    const target = blockId ? findBlock(loadState(deps), blockId) : undefined;
+    // Read once; blocks are only built before the write when a --block id needs checking.
+    const settings = loadSettings(deps.env);
+    const events = readEvents(eventsPath(deps.env));
+    const target = blockId ? findBlock(stateFrom(settings, events), blockId) : undefined;
     if (blockId && !target) {
       notFound(`no block ${blockId}`, "Run `hours-axi blocks` to list block ids");
     }
@@ -54,7 +57,7 @@ export function noteCommand(deps: Deps): AxiCliCommand<undefined> {
 
     // Re-run the same matching rule buildBlocks used, limited to blocks that now hold this text,
     // so a repeated note ("Fix tests" again tomorrow) reports today's block, not the first one.
-    const state = loadState(deps);
+    const state = stateFrom(settings, [...events, event]);
     const block = blockId
       ? findBlock(state, blockId)
       : blockForNote(

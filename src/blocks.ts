@@ -74,18 +74,28 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
   const gap = config.idleGapMinutes * 60_000;
   // Aliases are resolved here, on read, so renaming a project in config fixes past weeks too,
   // and a note or edit can use either the repo name or the report name.
-  const name = (project: string, cwd?: string) => projectName(config, project, cwd);
+  // Cached because every activity event asks, and a log holds only a few distinct pairs.
+  const names = new Map<string, string>();
+  const name = (project: string, cwd?: string) => {
+    const key = `${project}\0${cwd ?? ""}`;
+    let resolved = names.get(key);
+    if (resolved === undefined) names.set(key, (resolved = projectName(config, project, cwd)));
+    return resolved;
+  };
+  // Sorted once up front: every later pass relies on time order, and parsing timestamps
+  // inside sort comparators was the bulk of the cost on a long log.
+  const ordered = sortByTs(events);
   // Drops and restores are settled first, in log order, because an anchored drop has to be
   // known before activity is grouped into blocks.
   const drops = new Map<string, DropEvent>();
-  for (const event of sortByTs(events)) {
+  for (const event of ordered) {
     if (event.type === "drop") drops.set(event.block, event);
     else if (event.type === "restore") drops.delete(event.block);
   }
   // An anchored drop removes the activity itself rather than a block id, so it keeps covering
   // the same time however the idle gap later splits or merges blocks.
   const excluded = [...drops.values()].flatMap((d) => (d.anchor ? [d.anchor] : []));
-  const blocks = activityBlocks(events, gap, name, excluded);
+  const blocks = activityBlocks(ordered, gap, name, excluded);
   const byId = new Map(blocks.map((block) => [block.id, block]));
   const orphans: Orphan[] = [];
 
@@ -108,7 +118,7 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
   // One pass in log order: a correction only overrides what was recorded before it, so an
   // agent note written after `edit --note` is still kept on the block.
   const refsEdited = new Set<string>();
-  for (const event of sortByTs(events)) {
+  for (const event of ordered) {
     if (event.type === "note") {
       let block: Block | undefined;
       if (event.block) {
@@ -210,6 +220,7 @@ function covering(blocks: Block[], anchor: Anchor): Block | undefined {
     .sort((a, b) => overlap(b) - overlap(a))[0];
 }
 
+// Expects events in time order (see deriveBlocks), so each session's list is already sorted.
 function activityBlocks(
   events: HoursEvent[],
   gap: number,
@@ -226,13 +237,10 @@ function activityBlocks(
 
   const blocks: Block[] = [];
   for (const [session, list] of bySession) {
-    list.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
     let run: ActivityEvent[] = [];
+    let [start, end] = [0, 0];
     const flush = () => {
-      if (run.length < 2) return;
-      const start = Date.parse(run[0].ts);
-      const end = Date.parse(run[run.length - 1].ts);
-      if (end <= start) return;
+      if (run.length < 2 || end <= start) return;
       blocks.push({
         id: blockId(session, run[0].ts),
         // A session can cd between repos; the most frequent project is what the time was spent on.
@@ -259,11 +267,12 @@ function activityBlocks(
         run = [];
         continue;
       }
-      const last = run[run.length - 1];
-      if (last && ts - Date.parse(last.ts) > gap) {
+      if (run.length > 0 && ts - end > gap) {
         flush();
         run = [];
       }
+      if (run.length === 0) start = ts;
+      end = ts;
       run.push(event);
     }
     flush();
@@ -308,7 +317,9 @@ function mostFrequent(values: string[]): string {
 }
 
 function sortByTs<T extends { ts: string }>(events: T[]): T[] {
-  return [...events].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+  // Sorting indices over a number array avoids one wrapper object per event on long logs.
+  const ms = events.map((event) => Date.parse(event.ts));
+  return [...events.keys()].sort((a, b) => ms[a] - ms[b]).map((i) => events[i]);
 }
 
 // Credits each block with its share of real time: per local day, every moment is counted

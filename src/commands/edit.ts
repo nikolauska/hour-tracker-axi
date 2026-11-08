@@ -4,7 +4,7 @@ import { eventsPath } from "../config.js";
 import { notFound, validation } from "../errors.js";
 import { anchorOf } from "../blocks.js";
 import { appendEvent } from "../events.js";
-import { findBlock, loadState, type Deps } from "../state.js";
+import { findBlock, loadState, record, type Deps, type State } from "../state.js";
 import { clock, dayKey, parseClock } from "../time.js";
 
 export const EDIT_HELP = [
@@ -45,7 +45,8 @@ export function editCommand(deps: Deps): AxiCliCommand<undefined> {
       note: { type: "string" },
       ref: { type: "string" },
     });
-    const block = requireBlock(deps, positionals, "edit");
+    const state = loadState(deps);
+    const block = requireBlock(state, positionals, "edit");
     if (["start", "end", "project", "note", "ref"].every((k) => flags[k] === undefined)) {
       validation(
         "nothing to change",
@@ -58,7 +59,7 @@ export function editCommand(deps: Deps): AxiCliCommand<undefined> {
     const end = flags.end === undefined ? block.end : time(String(flags.end), day, "--end");
     if (end <= start) validation("the block would end before it starts", "Check --start and --end");
 
-    appendEvent(eventsPath(deps.env), {
+    const after = record(deps, state, {
       v: 1,
       type: "edit",
       ts: new Date(deps.now()).toISOString(),
@@ -69,7 +70,7 @@ export function editCommand(deps: Deps): AxiCliCommand<undefined> {
       ...(flags.note !== undefined ? { note: String(flags.note) } : {}),
       ...(flags.ref !== undefined ? { ref: String(flags.ref) } : {}),
     });
-    const updated = findBlock(loadState(deps), block.id);
+    const updated = findBlock(after, block.id);
     return {
       edited: block.id,
       block: updated
@@ -89,10 +90,11 @@ export function dropCommand(deps: Deps): AxiCliCommand<undefined> {
   return (args) => {
     const { positionals } = parseCommand("drop", args, {});
     // Dropping twice is an already-satisfied request, not an error.
-    const already = loadState(deps).dropped.some((b) => b.id === positionals[0]);
+    const state = loadState(deps);
+    const already = state.dropped.some((b) => b.id === positionals[0]);
     if (positionals.length === 1 && already)
       return { dropped: positionals[0], status: "already dropped" };
-    const block = requireBlock(deps, positionals, "drop");
+    const block = requireBlock(state, positionals, "drop");
     const anchor = anchorOf(block);
     appendEvent(eventsPath(deps.env), {
       v: 1,
@@ -130,10 +132,10 @@ export function restoreCommand(deps: Deps): AxiCliCommand<undefined> {
   };
 }
 
-function requireBlock(deps: Deps, positionals: string[], command: string) {
+function requireBlock(state: State, positionals: string[], command: string) {
   if (positionals.length !== 1)
     validation("exactly one block id is required", `Run \`hours-axi ${command} <block-id>\``);
-  const block = findBlock(loadState(deps), positionals[0]);
+  const block = findBlock(state, positionals[0]);
   if (!block)
     notFound(`no block ${positionals[0]}`, "Run `hours-axi blocks --day <day>` to list block ids");
   return block;
