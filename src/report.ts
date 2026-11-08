@@ -16,8 +16,14 @@ export interface Report {
 
 // Rounds each day+project total once, because that is the unit hour reports are entered in;
 // rounding per block would inflate days with many short blocks.
-export function buildReport(state: State, from: string, to: string): Report {
+export function buildReport(state: State, from: string, to: string, project?: string): Report {
   const roundMs = state.settings.roundMinutes * 60_000;
+  // Overlap splitting divides milliseconds, so an exact 15 min can come out a hair above;
+  // without the tolerance rounding up would add a whole step for float noise.
+  const steps =
+    state.settings.roundMode === "up"
+      ? (ms: number) => Math.ceil(ms / roundMs - 1e-9)
+      : (ms: number) => Math.round(ms / roundMs);
   const byId = new Map(state.blocks.map((b) => [b.id, b]));
   const groups = new Map<
     string,
@@ -25,6 +31,7 @@ export function buildReport(state: State, from: string, to: string): Report {
   >();
   for (const a of state.allocations) {
     if (a.day < from || a.day > to) continue;
+    if (project !== undefined && a.project !== project) continue;
     const key = `${a.day}\0${a.project}`;
     const group = groups.get(key) ?? { date: a.day, project: a.project, ms: 0, blockIds: [] };
     group.ms += a.ms;
@@ -41,7 +48,7 @@ export function buildReport(state: State, from: string, to: string): Report {
       return {
         date: group.date,
         project: group.project,
-        hours: twoDecimals(Math.round(group.ms / roundMs) * (roundMs / 3_600_000)),
+        hours: twoDecimals(steps(group.ms) * (roundMs / 3_600_000)),
         notes: unique(blocks.flatMap((b) => b.notes)).join("; "),
         refs: unique(blocks.flatMap((b) => b.refs)).join(", "),
       };
@@ -68,6 +75,13 @@ export function toCsv(rows: DayRow[]): string {
   for (const r of rows)
     lines.push([r.date, r.project, r.hours.toFixed(2), r.notes, r.refs].map(csvCell).join(","));
   // No trailing newline: the CLI runtime adds one, and a blank last line trips some importers.
+  return lines.join("\n");
+}
+
+export function toProjectCsv(rows: ReturnType<typeof byProject>): string {
+  const lines = ["project,hours,days"];
+  for (const r of rows)
+    lines.push([r.project, r.hours.toFixed(2), String(r.days)].map(csvCell).join(","));
   return lines.join("\n");
 }
 

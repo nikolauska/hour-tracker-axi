@@ -5,6 +5,8 @@ import { dayKey, nextLocalMidnight } from "./time.js";
 export interface Config {
   idleGapMinutes: number;
   roundMinutes: number;
+  // Many billing rules round each day up; nearest is the fairest default.
+  roundMode?: "nearest" | "up";
   // Off when branch names contain ticket-like words that aren't tickets.
   branchRefs?: boolean;
   // Repo name, or absolute path prefix, → name used in reports.

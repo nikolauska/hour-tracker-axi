@@ -1,12 +1,13 @@
 import type { AxiCliCommand } from "axi-sdk-js";
 import { parseCommand } from "../args.js";
 import { validation } from "../errors.js";
-import { buildReport, byProject, toCsv } from "../report.js";
+import { projectName } from "../blocks.js";
+import { buildReport, byProject, toCsv, toProjectCsv } from "../report.js";
 import { loadState, type Deps } from "../state.js";
 import { addDays, dayKey, duration, monthRange, parseDay, weekStart } from "../time.js";
 
 export const REPORT_HELP = [
-  "usage: hours-axi report [--week | --last-week | --month [YYYY-MM] | --last-month | --day <day> | --from <day> --to <day>] [--by day|project] [--format toon|csv]",
+  "usage: hours-axi report [--week | --last-week | --month [YYYY-MM] | --last-month | --day <day> | --from <day> --to <day>] [--project <name>] [--by day|project] [--format toon|csv]",
   "flags:",
   "  --week: This Monday-to-Sunday week (default)",
   "  --last-week: The previous Monday-to-Sunday week",
@@ -14,10 +15,11 @@ export const REPORT_HELP = [
   "  --last-month: The previous calendar month",
   "  --day <day>: One day: today, yesterday or YYYY-MM-DD",
   "  --from <day> --to <day>: Inclusive range of local days",
+  "  --project <name>: Only this project; the repo name or the report name from config",
   "  --by day|project: One row per day and project (default), or totals per project",
-  "  --format toon|csv: csv prints day rows for pasting into a reporting tool",
+  "  --format toon|csv: csv prints the same rows for pasting into a reporting tool",
   "notes:",
-  "  hours are rounded per day and project to the configured step (default 15 min); exact is the unrounded sum",
+  "  hours are rounded per day and project to the configured step (default 15 min, to the nearest step unless roundMode is up); exact is the unrounded sum",
   "  A row can round to 0 when little time was tracked; it is kept so nothing disappears silently",
   "  Includes agent-observed time and time added with `hours-axi add`; add meetings and other work no agent saw that way",
   "",
@@ -35,6 +37,7 @@ export function reportCommand(deps: Deps): AxiCliCommand<undefined> {
       to: { type: "string" },
       by: { type: "string" },
       format: { type: "string" },
+      project: { type: "string" },
     });
     if (positionals.length)
       validation(`unexpected argument: ${positionals[0]}`, "Run `hours-axi report --help`");
@@ -45,17 +48,25 @@ export function reportCommand(deps: Deps): AxiCliCommand<undefined> {
       validation("--by must be day or project", "Run `hours-axi report --by project`");
     if (format !== "toon" && format !== "csv")
       validation("--format must be toon or csv", "Run `hours-axi report --format csv`");
-    if (format === "csv" && by !== "day")
-      validation("--format csv only supports --by day", "Run `hours-axi report --format csv`");
 
-    const report = buildReport(loadState(deps), from, to);
-    if (format === "csv") return toCsv(report.rows);
+    const state = loadState(deps);
+    const project =
+      flags.project === undefined ? undefined : projectName(state.settings, String(flags.project));
+    const report = buildReport(state, from, to, project);
+    if (format === "csv")
+      return by === "project" ? toProjectCsv(byProject(report.rows)) : toCsv(report.rows);
 
     const range_ = { from, to };
+    const scope = project === undefined ? "" : ` for ${project}`;
     if (report.rows.length === 0)
-      return { range: range_, rows: `0 tracked hours from ${from} to ${to}` };
+      return {
+        range: range_,
+        ...(project === undefined ? {} : { project }),
+        rows: `0 tracked hours${scope} from ${from} to ${to}`,
+      };
     return {
       range: range_,
+      ...(project === undefined ? {} : { project }),
       total: { hours: report.totalHours, exact: duration(report.exactMs) },
       rows:
         by === "project"

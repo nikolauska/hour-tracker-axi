@@ -12,6 +12,7 @@ export interface Settings extends Config {
 export const DEFAULTS: Settings = {
   idleGapMinutes: 15,
   roundMinutes: 15,
+  roundMode: "nearest",
   branchRefs: true,
   projects: {},
 };
@@ -77,6 +78,11 @@ export function loadSettings(env: Env = process.env): Settings {
         `Fix ${key} in ${path}`,
       ]);
     }
+  }
+  if (settings.roundMode !== "nearest" && settings.roundMode !== "up") {
+    throw new AxiError('config roundMode must be "nearest" or "up"', "CONFIG_ERROR", [
+      `Fix roundMode in ${path}`,
+    ]);
   }
   if (typeof settings.branchRefs !== "boolean") {
     throw new AxiError("config branchRefs must be true or false", "CONFIG_ERROR", [

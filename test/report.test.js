@@ -106,3 +106,52 @@ test("a step that doesn't divide an hour shows two decimals", async () => {
   assert.match(output, /hours: 0\.83\n/);
   assert.match(output, /2026-11-02,alpha,0\.83,/);
 });
+
+test("--project limits the report and accepts the report name", async () => {
+  const s = week();
+  mkdirSync(s.env.HOURS_AXI_CONFIG_DIR, { recursive: true });
+  writeFileSync(
+    join(s.env.HOURS_AXI_CONFIG_DIR, "config.json"),
+    JSON.stringify({ projects: { beta: "CLIENT-B" } }),
+  );
+  const alpha = (await s.cli("report", "--project", "alpha")).output;
+  assert.match(alpha, /project: alpha/);
+  assert.match(alpha, /rows\[1\]/);
+  const beta = (await s.cli("report", "--project", "beta", "--format", "csv")).output;
+  assert.equal(beta, "date,project,hours,notes,refs\n2026-11-03,CLIENT-B,0.00,,\n");
+  assert.match(
+    (await s.cli("report", "--project", "gamma")).output,
+    /0 tracked hours for gamma from 2026-11-02 to 2026-11-08/,
+  );
+});
+
+test("roundMode up rounds each day and project up to the next step", async () => {
+  const s = week();
+  mkdirSync(s.env.HOURS_AXI_CONFIG_DIR, { recursive: true });
+  writeFileSync(join(s.env.HOURS_AXI_CONFIG_DIR, "config.json"), '{"roundMode": "up"}');
+  const { output } = await s.cli("report", "--format", "csv");
+  assert.match(output, /2026-11-02,alpha,1\.00,/);
+  assert.match(output, /2026-11-03,beta,0\.25,/);
+});
+
+test("roundMode up does not add a step for an exact multiple split by overlap", async () => {
+  const s = sandbox("2026-11-02T18:00:00.000Z");
+  mkdirSync(s.env.HOURS_AXI_CONFIG_DIR, { recursive: true });
+  writeFileSync(join(s.env.HOURS_AXI_CONFIG_DIR, "config.json"), '{"roundMode": "up"}');
+  // Three projects share 45 minutes, 15 minutes each.
+  for (const [session, project] of [
+    ["a", "alpha"],
+    ["b", "beta"],
+    ["c", "gamma"],
+  ]) {
+    for (const m of ["00", "15", "30", "45"])
+      s.ping(session, `2026-11-02T09:${m}:00.000Z`, project);
+  }
+  const { output } = await s.cli("report", "--day", "today", "--by", "project");
+  assert.match(output, /alpha,0\.25,1\n\s+beta,0\.25,1\n\s+gamma,0\.25,1/);
+});
+
+test("csv works with --by project", async () => {
+  const { output } = await week().cli("report", "--by", "project", "--format", "csv");
+  assert.equal(output, "project,hours,days\nalpha,0.75,1\nbeta,0.00,1\n");
+});

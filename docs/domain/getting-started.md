@@ -30,7 +30,7 @@ Only Claude Code is supported for automatic timing. In other agents you can stil
 - **You check the day.** `hours-axi` shows today's total, the block that's still running, and any block without a note yet. It also shows whether the hooks are installed and when activity was last recorded. When an agent runs it inside a Claude Code session that should be recording but has nothing recent, it warns.
 - **You fix what's wrong.** `hours-axi blocks` lists a day's blocks with their ids. `hours-axi edit <id>` changes a block's times, project, note or ticket id, and `hours-axi drop <id>` leaves a block out of reports. `hours-axi blocks --all` still shows dropped blocks, and `hours-axi restore <id>` brings one back.
 - **You add what no agent saw.** For meetings, calls and reviews, use `hours-axi add --from 13:00 --to 14:00 --note "Planning"`. `--ref` adds a ticket id, and full timestamps like `2026-11-03T00:30:00+02:00` let an entry run past midnight.
-- **You report.** `hours-axi report --week` shows this week's rounded hours per day and project. `--month` does the same for this month, `--month 2026-10` for a given month, and `--last-month` for the previous one. `--format csv` gives the same rows ready to paste into a spreadsheet or reporting tool.
+- **You report.** `hours-axi report --week` shows this week's rounded hours per day and project. `--month` does the same for this month, `--month 2026-10` for a given month, and `--last-month` for the previous one. `--project <name>` limits a report to one project, and `--by project` gives one total per project instead of per day. `--format csv` gives the same rows ready to paste into a spreadsheet or reporting tool.
 
 Run `hours-axi --help` or `hours-axi <command> --help` for every flag.
 
@@ -42,6 +42,7 @@ Settings are optional and live in `~/.config/hours-axi/config.json` (or `$XDG_CO
 {
   "idleGapMinutes": 15,
   "roundMinutes": 15,
+  "roundMode": "nearest",
   "branchRefs": true,
   "projects": { "my-repo": "CLIENT-PROJECT", "~/work/api": "CLIENT-API" }
 }
@@ -49,6 +50,7 @@ Settings are optional and live in `~/.config/hours-axi/config.json` (or `$XDG_CO
 
 - `idleGapMinutes`: the longest pause that still counts as continuous work. See [How hours are counted](how-hours-are-counted.md).
 - `roundMinutes`: the rounding step used in reports.
+- `roundMode`: `nearest` (default) rounds each day + project to the nearest step, `up` always rounds up to the next one, for billing rules that work that way.
 - `branchRefs`: when a block has no ticket id from a note, take one from its git branch name (like `ABC-123` in `feature/ABC-123-login`). Set it to `false` if your branch names contain words that look like ticket ids but aren't.
 - `projects`: renames a repo in reports, for when your reporting tool expects a client or project code. A key is either a repo name or a path starting with `/` or `~/`. A path matches work in that folder and everything under it, so two repos with the same folder name (like `~/work/api` and `~/personal/api`) can get different names. The longest matching path wins, then a repo-name key. A path only matches the folder the agent actually ran in, so a git worktree kept somewhere else needs its own entry. `--project` on `note`, `edit` and `add` accepts the repo name or the report name.
 

@@ -12,7 +12,7 @@ const COMMANDS: Record<string, string> = {
     "Describe the work in the current block (agents: run at task start, on direction change, and at the end)",
   "blocks [--day <day>] [--all]":
     "List a day's blocks with ids, times, notes and refs; --all includes dropped ones",
-  "report [--week|--last-week|--month [YYYY-MM]|--last-month|--day|--from --to] [--by] [--format]":
+  "report [--week|--last-week|--month [YYYY-MM]|--last-month|--day|--from --to] [--project] [--by] [--format]":
     "Rounded hours per day and project, as TOON or pasteable CSV",
   "edit <id> [--start] [--end] [--project] [--note] [--ref]":
     "Correct a block (only when the user asks)",

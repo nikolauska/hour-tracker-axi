@@ -17,6 +17,7 @@ test("a valid config overrides the defaults", () => {
   assert.deepEqual(settings, {
     idleGapMinutes: 15,
     roundMinutes: 30,
+    roundMode: "nearest",
     branchRefs: true,
     projects: { alpha: "A" },
   });
@@ -37,4 +38,9 @@ for (const [label, raw] of [
 test("a ~/ project key is expanded against HOME", () => {
   const env = { ...withConfig('{"projects": {"~/work/api": "API"}}'), HOME: "/home/me" };
   assert.deepEqual(loadSettings(env).projects, { "/home/me/work/api": "API" });
+});
+
+test("roundMode must be nearest or up", () => {
+  assert.equal(loadSettings(withConfig('{"roundMode": "up"}')).roundMode, "up");
+  assert.throws(() => loadSettings(withConfig('{"roundMode": "down"}')), { code: "CONFIG_ERROR" });
 });
