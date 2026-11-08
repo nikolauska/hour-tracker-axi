@@ -1,6 +1,14 @@
-import { mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import {
+  accessSync,
+  constants,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { AxiError, type AxiCliCommand } from "axi-sdk-js";
 import { parseCommand } from "../args.js";
 import { validation } from "../errors.js";
@@ -15,6 +23,7 @@ export const SETUP_HELP = [
   "  Adds async hooks for SessionStart, UserPromptSubmit, PostToolUse, Stop and SessionEnd that run `hours-axi hook`",
   "  Hooks store timestamps, session id, directory, repo and branch only; never prompts, tool input or transcripts",
   "  Safe to run again: an existing install is reported as already installed",
+  "  Warns when hours-axi is not on PATH, because the hooks run it by name",
   "",
 ].join("\n");
 
@@ -60,12 +69,50 @@ export function setupCommand(deps: Deps): AxiCliCommand<undefined> {
       setup: changed ? "installed" : "already installed",
       settings: shown,
       events: HOOK_EVENTS,
+      // Hooks call `hours-axi` by name and their failures are invisible by design, so a
+      // missing PATH entry would otherwise look exactly like a day without work.
+      ...(onPath(deps.env, "hours-axi")
+        ? {}
+        : {
+            warning:
+              "hours-axi is not on PATH here, so the hooks may not find it and nothing gets recorded",
+          }),
       help: [
         "New Claude Code sessions record time automatically; restart sessions that are already running",
         "Run `hours-axi` later to see tracked time",
       ],
     };
   };
+}
+
+// Whether our hooks are in Claude Code's user settings, without ever failing the caller.
+export function hookStatus(env: Env): "installed" | "not installed" | "unreadable" {
+  try {
+    const hooks = readSettings(settingsPath(env)).hooks ?? {};
+    const ours = HOOK_EVENTS.some((event) =>
+      hooks[event]?.some?.((group) => group.hooks?.some?.((h) => isOurs(h))),
+    );
+    return ours ? "installed" : "not installed";
+  } catch {
+    return "unreadable";
+  }
+}
+
+function onPath(env: Env, name: string): boolean {
+  const names = process.platform === "win32" ? [`${name}.cmd`, `${name}.exe`, name] : [name];
+  return (env.PATH ?? "")
+    .split(delimiter)
+    .filter(Boolean)
+    .some((dir) =>
+      names.some((file) => {
+        try {
+          accessSync(join(dir, file), constants.X_OK);
+          return true;
+        } catch {
+          return false;
+        }
+      }),
+    );
 }
 
 export function settingsPath(env: Env): string {

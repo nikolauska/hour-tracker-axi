@@ -36,3 +36,25 @@ test("the home view lists corrections whose block no longer exists", async () =>
   );
   assert.match(output, /redo them/);
 });
+
+test("the home view shows hook status and last activity", async () => {
+  const s = sandbox("2026-11-02T12:00:00.000Z");
+  s.ping("a", "2026-11-02T09:00:00.000Z");
+  s.ping("a", "2026-11-02T09:10:00.000Z");
+  const { output } = await s.cli();
+  assert.match(output, /hooks: not installed/);
+  assert.match(output, /lastActivity: "2026-11-02 09:10"/);
+  assert.match(output, /hours-axi setup claude/);
+  assert.doesNotMatch(output, /warning/);
+});
+
+test("inside Claude Code with hooks installed, missing recent activity is a warning", async () => {
+  const s = sandbox("2026-11-02T12:00:00.000Z");
+  await s.cli("setup", "claude");
+  s.ping("a", "2026-11-02T09:00:00.000Z");
+  s.ping("a", "2026-11-02T09:10:00.000Z");
+  s.env.CLAUDECODE = "1";
+  assert.match((await s.cli()).output, /hooks: installed[\s\S]*warning: .*on PATH/);
+  s.ping("a", "2026-11-02T11:58:00.000Z");
+  assert.doesNotMatch((await s.cli()).output, /warning/);
+});

@@ -1,4 +1,5 @@
 import { loadState, type Deps } from "../state.js";
+import { hookStatus } from "./setup.js";
 import { clock, dayKey, duration } from "../time.js";
 
 export function home(deps: Deps): Record<string, unknown> {
@@ -6,11 +7,15 @@ export function home(deps: Deps): Record<string, unknown> {
   const now = deps.now();
   const today = dayKey(now);
 
+  const hooks = hookStatus(deps.env);
   if (state.events.length === 0) {
     return {
       tracking: "no events recorded yet",
+      hooks,
       help: [
-        "Run `hours-axi setup claude` once to record Claude Code working time automatically (edits Claude Code user settings; only when the user asks)",
+        hooks === "installed"
+          ? "Hooks are installed; Claude Code sessions started after setup record time automatically, so restart older ones"
+          : "Run `hours-axi setup claude` once to record Claude Code working time automatically (edits Claude Code user settings; only when the user asks)",
         'Run `hours-axi note "<what you are working on>"` to describe the current work',
         "Run `hours-axi --help` for all commands",
       ],
@@ -27,8 +32,20 @@ export function home(deps: Deps): Record<string, unknown> {
   const gap = state.settings.idleGapMinutes * 60_000;
   const active = todays.filter((b) => now - b.end <= gap).at(-1);
   const unlabeled = todays.filter((b) => b.notes.length === 0);
+  const last = state.events.reduce(
+    (max, e) => (e.type === "activity" ? Math.max(max, Date.parse(e.ts)) : max),
+    -Infinity,
+  );
 
   const help: string[] = [];
+  // Only inside Claude Code: this very session should have just been recorded, while in a
+  // plain terminal a quiet stretch is normal.
+  const silent = deps.env.CLAUDECODE === "1" && hooks === "installed" && !(now - last <= gap);
+  if (hooks === "not installed") {
+    help.push(
+      "Run `hours-axi setup claude` to record Claude Code working time automatically (only when the user asks)",
+    );
+  }
   if (unlabeled.length > 0) {
     help.push(
       'Run `hours-axi note "<what was done>" --block <id>` to label a block that has no note',
@@ -43,6 +60,14 @@ export function home(deps: Deps): Record<string, unknown> {
 
   return {
     today,
+    hooks,
+    lastActivity: Number.isFinite(last) ? `${dayKey(last)} ${clock(last)}` : "none",
+    ...(silent
+      ? {
+          warning:
+            "this Claude Code session has no recorded activity; check that `hours-axi` is on PATH for hooks and restart the session",
+        }
+      : {}),
     total: duration(total),
     active: active
       ? {

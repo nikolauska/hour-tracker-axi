@@ -79,3 +79,14 @@ test("a symlinked settings file stays a symlink and its target gets the hooks", 
   assert.equal(written.theme, "dark");
   assert.ok(written.hooks.PostToolUse);
 });
+
+test("setup warns when hours-axi is not on PATH", async () => {
+  const s = sandbox();
+  s.env.PATH = join(s.root, "empty-bin");
+  assert.match((await s.cli("setup", "claude")).output, /warning: "hours-axi is not on PATH/);
+  const bin = join(s.root, "bin");
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, "hours-axi"), "#!/bin/sh\n", { mode: 0o755 });
+  s.env.PATH = bin;
+  assert.doesNotMatch((await s.cli("setup", "claude")).output, /warning/);
+});
