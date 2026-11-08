@@ -5,6 +5,8 @@ import { dayKey, nextLocalMidnight } from "./time.js";
 export interface Config {
   idleGapMinutes: number;
   roundMinutes: number;
+  // Off when branch names contain ticket-like words that aren't tickets.
+  branchRefs?: boolean;
   // Repo name, or absolute path prefix, → name used in reports.
   projects?: Record<string, string>;
 }
@@ -34,6 +36,8 @@ export interface Block {
   manual: boolean;
   // First and last recorded activity, before any edit; what a correction's anchor points at.
   raw?: { start: number; end: number };
+  // Git branches the block's activity ran on, in order of first use.
+  branches?: string[];
 }
 
 // A correction whose block no longer exists, usually because idleGapMinutes changed and
@@ -101,6 +105,7 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
 
   // One pass in log order: a correction only overrides what was recorded before it, so an
   // agent note written after `edit --note` is still kept on the block.
+  const refsEdited = new Set<string>();
   for (const event of sortByTs(events)) {
     if (event.type === "note") {
       let block: Block | undefined;
@@ -125,7 +130,19 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
       if (event.end) block.end = Date.parse(event.end);
       if (event.project) block.project = name(event.project);
       if (event.note !== undefined) block.notes = event.note ? [event.note] : [];
-      if (event.ref !== undefined) block.refs = event.ref ? [event.ref] : [];
+      if (event.ref !== undefined) {
+        block.refs = event.ref ? [event.ref] : [];
+        refsEdited.add(block.id);
+      }
+    }
+  }
+
+  // Agents often forget --ref while the branch already names the ticket. This only fills a
+  // gap: an explicit ref, or one cleared with `edit --ref ""`, always wins.
+  if (config.branchRefs !== false) {
+    for (const block of blocks) {
+      if (block.refs.length > 0 || refsEdited.has(block.id)) continue;
+      block.refs = [...new Set((block.branches ?? []).flatMap(ticketsIn))];
     }
   }
 
@@ -158,6 +175,13 @@ export function anchorOf(block: Block): Anchor | undefined {
     start: new Date(block.raw.start).toISOString(),
     end: new Date(block.raw.end).toISOString(),
   };
+}
+
+// Uppercase keys only (ABC-123): lowercase would also match words like release-2026 or node-24.
+function ticketsIn(branch: string): string[] {
+  return [...branch.matchAll(/(?<![A-Za-z0-9])([A-Z][A-Z0-9]+-\d+)(?![A-Za-z0-9])/g)].map(
+    (m) => m[1],
+  );
 }
 
 function fromAnchor(id: string, anchor: Anchor, project: string): Block {
@@ -218,6 +242,7 @@ function activityBlocks(
         refs: [],
         manual: false,
         raw: { start, end },
+        branches: [...new Set(run.flatMap((e) => (e.branch ? [e.branch] : [])))],
       });
     };
     const holes = excluded

@@ -38,6 +38,8 @@ A day + project with very little time can round to 0. That row still shows up in
 
 Notes are what turn hours into a report line. When the agent writes a note, it joins the block of the same project that is running at that moment, or one that ended or starts within the idle gap. A note written just before any activity still lands if activity follows within the idle gap. A note can also name a specific block. The same note text appears only once per block. In reports, the notes and ticket ids of every block in a day + project are listed together.
 
+A block that has no ticket id from a note or an edit takes it from its git branch names. Only uppercase ids like `ABC-123` count, so words like `release-2026` don't get mistaken for tickets. Clearing a block's ticket ids with an edit also keeps the branch from filling them in again. The `branchRefs` setting turns this off.
+
 ## Corrections
 
 Corrections are recorded on top of the original activity. They never rewrite it.

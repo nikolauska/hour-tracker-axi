@@ -14,7 +14,12 @@ function withConfig(raw) {
 
 test("a valid config overrides the defaults", () => {
   const settings = loadSettings(withConfig('{"roundMinutes": 30, "projects": {"alpha": "A"}}'));
-  assert.deepEqual(settings, { idleGapMinutes: 15, roundMinutes: 30, projects: { alpha: "A" } });
+  assert.deepEqual(settings, {
+    idleGapMinutes: 15,
+    roundMinutes: 30,
+    branchRefs: true,
+    projects: { alpha: "A" },
+  });
 });
 
 for (const [label, raw] of [
@@ -22,6 +27,7 @@ for (const [label, raw] of [
   ["an array", "[]"],
   ["non-object projects", '{"projects": "alpha"}'],
   ["non-string project names", '{"projects": {"alpha": 1}}'],
+  ["non-boolean branchRefs", '{"branchRefs": "yes"}'],
 ]) {
   test(`${label} is a config error, not a crash`, () => {
     assert.throws(() => loadSettings(withConfig(raw)), { code: "CONFIG_ERROR" });

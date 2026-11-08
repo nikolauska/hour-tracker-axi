@@ -42,12 +42,14 @@ Settings are optional and live in `~/.config/hours-axi/config.json` (or `$XDG_CO
 {
   "idleGapMinutes": 15,
   "roundMinutes": 15,
+  "branchRefs": true,
   "projects": { "my-repo": "CLIENT-PROJECT", "~/work/api": "CLIENT-API" }
 }
 ```
 
 - `idleGapMinutes`: the longest pause that still counts as continuous work. See [How hours are counted](how-hours-are-counted.md).
 - `roundMinutes`: the rounding step used in reports.
+- `branchRefs`: when a block has no ticket id from a note, take one from its git branch name (like `ABC-123` in `feature/ABC-123-login`). Set it to `false` if your branch names contain words that look like ticket ids but aren't.
 - `projects`: renames a repo in reports, for when your reporting tool expects a client or project code. A key is either a repo name or a path starting with `/` or `~/`. A path matches work in that folder and everything under it, so two repos with the same folder name (like `~/work/api` and `~/personal/api`) can get different names. The longest matching path wins, then a repo-name key. A path only matches the folder the agent actually ran in, so a git worktree kept somewhere else needs its own entry. `--project` on `note`, `edit` and `add` accepts the repo name or the report name.
 
-All three apply to past weeks too, because hours are recalculated from the raw record every time.
+All of these apply to past weeks too, because hours are recalculated from the raw record every time.

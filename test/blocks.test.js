@@ -296,3 +296,25 @@ test("a path key tells apart repos that share a folder name; the longest path wi
   assert.equal(projectName(config, "api", "/home/me/api"), "OTHER");
   assert.equal(projectName(config, "api"), "OTHER");
 });
+
+test("a ticket id in the branch name fills a block's refs unless one was given", () => {
+  const on = (session, hhmm, branch) => ({ ...activity(session, hhmm), branch });
+  const events = [
+    on("a", "09:00", "feature/TICKET-1-login"),
+    on("a", "09:10", "TICKET-2"),
+    on("b", "11:00", "release-2026"),
+    on("b", "11:10", "release-2026"),
+    on("c", "13:00", "feature/TICKET-3"),
+    on("c", "13:10", "feature/TICKET-3"),
+    { v: 1, type: "note", ts: T("13:05"), project: "alpha", text: "x", ref: "OTHER-9" },
+  ];
+  const refs = (config) => buildBlocks(events, config).map((b) => b.refs);
+  assert.deepEqual(refs(CONFIG), [["TICKET-1", "TICKET-2"], [], ["OTHER-9"]]);
+  assert.deepEqual(refs({ ...CONFIG, branchRefs: false }), [[], [], ["OTHER-9"]]);
+  const [first] = buildBlocks(events, CONFIG);
+  const cleared = buildBlocks(
+    [...events, { v: 1, type: "edit", ts: T("14:00"), block: first.id, ref: "" }],
+    CONFIG,
+  );
+  assert.deepEqual(cleared[0].refs, []);
+});
