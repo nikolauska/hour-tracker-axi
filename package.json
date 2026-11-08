@@ -1,6 +1,6 @@
 {
   "name": "@nikolauska/hour-tracker-axi",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Agent-facing CLI that records coding-agent working hours from host hooks and reports them",
   "keywords": [
     "TOON",
