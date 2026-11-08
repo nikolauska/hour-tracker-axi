@@ -57,7 +57,15 @@ export function loadSettings(env: Env = process.env): Settings {
       `Fix projects in ${path}, e.g. { "my-repo": "CLIENT-PROJECT" }`,
     ]);
   }
-  const settings = { ...DEFAULTS, ...parsed, projects: { ...projects } };
+  // `~/` is expanded once here so block building only ever compares absolute paths.
+  const home = env.HOME || homedir();
+  const expanded = Object.fromEntries(
+    Object.entries(projects as Record<string, string>).map(([key, value]) => [
+      key.startsWith("~/") ? join(home, key.slice(2)) : key,
+      value,
+    ]),
+  );
+  const settings = { ...DEFAULTS, ...parsed, projects: expanded };
   for (const key of ["idleGapMinutes", "roundMinutes"] as const) {
     if (!Number.isFinite(settings[key]) || settings[key] <= 0) {
       throw new AxiError(`config ${key} must be a positive number`, "CONFIG_ERROR", [

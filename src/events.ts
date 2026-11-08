@@ -27,6 +27,8 @@ export interface NoteEvent {
   type: "note";
   ts: string;
   project: string;
+  // Set when the project came from the working directory, so path-based names resolve it.
+  cwd?: string;
   text: string;
   ref?: string;
   block?: string;
@@ -70,6 +72,8 @@ export interface AddEvent {
   start: string;
   end: string;
   project: string;
+  // Set when the project came from the working directory, so path-based names resolve it.
+  cwd?: string;
   note?: string;
   ref?: string;
 }

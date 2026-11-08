@@ -76,3 +76,30 @@ test("repeating yesterday's note text reports today's block", async () => {
   const today = /b-[0-9a-f]{6}/.exec((await s.cli("blocks")).output)[0];
   assert.match(output, new RegExp(`block: ${today}`));
 });
+
+test("a path-based project name applies to blocks and to notes from that directory", async () => {
+  const s = sandbox("2026-11-02T09:12:00.000Z");
+  mkdirSync(s.env.HOURS_AXI_CONFIG_DIR, { recursive: true });
+  writeFileSync(
+    join(s.env.HOURS_AXI_CONFIG_DIR, "config.json"),
+    JSON.stringify({ projects: { [join(s.root, "alpha")]: "CLIENT-1" } }),
+  );
+  s.ping("a", "2026-11-02T09:00:00.000Z");
+  s.ping("a", "2026-11-02T09:10:00.000Z");
+  // Same folder name in another place keeps its own name.
+  for (const ts of ["2026-11-02T09:00:00.000Z", "2026-11-02T09:10:00.000Z"])
+    s.append({
+      v: 1,
+      type: "activity",
+      ts,
+      session: "b",
+      event: "PostToolUse",
+      cwd: "/elsewhere/alpha",
+      project: "alpha",
+    });
+  const { output } = await s.cli("note", "Review");
+  assert.match(output, /block: b-[0-9a-f]{6}/);
+  const blocks = (await s.cli("blocks")).output;
+  assert.match(blocks, /CLIENT-1,"09:00","09:10",5m,Review/);
+  assert.match(blocks, /,alpha,"09:00","09:10",5m,\(none\)/);
+});

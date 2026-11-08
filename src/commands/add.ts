@@ -54,7 +54,8 @@ export function addCommand(deps: Deps): AxiCliCommand<undefined> {
     let id: string;
     do id = `m-${randomBytes(3).toString("hex")}`;
     while (taken.has(id));
-    const project = (flags.project as string | undefined) ?? detectProject(deps.cwd).project;
+    const explicit = flags.project as string | undefined;
+    const project = explicit ?? detectProject(deps.cwd).project;
     appendEvent(eventsPath(deps.env), {
       v: 1,
       type: "add",
@@ -63,6 +64,7 @@ export function addCommand(deps: Deps): AxiCliCommand<undefined> {
       start: new Date(start).toISOString(),
       end: new Date(end).toISOString(),
       project,
+      ...(explicit === undefined ? { cwd: deps.cwd } : {}),
       ...(flags.note ? { note: String(flags.note) } : {}),
       ...(flags.ref ? { ref: String(flags.ref) } : {}),
     });

@@ -4,7 +4,7 @@ import { eventsPath } from "../config.js";
 import { notFound, validation } from "../errors.js";
 import { appendEvent, type NoteEvent } from "../events.js";
 import { detectProject } from "../project.js";
-import { anchorOf, blockForNote } from "../blocks.js";
+import { anchorOf, blockForNote, projectName } from "../blocks.js";
 import { findBlock, loadState, type Deps } from "../state.js";
 
 export const NOTE_HELP = [
@@ -12,7 +12,7 @@ export const NOTE_HELP = [
   "flags:",
   "  --ref <ticket>: Ticket or issue id shown next to the note in reports, e.g. ABC-123",
   "  --block <id>: Label a specific block (ids from `hours-axi` or `hours-axi blocks`) instead of the current one",
-  "  --project <name>: Repo name the note belongs to; defaults to the current directory's repo",
+  "  --project <name>: Repo or report name the note belongs to; defaults to the current directory's project",
   "notes:",
   "  Run it when you start a task or its direction changes, and once at the end with a one-line summary",
   "  Notes end up in the user's hour report: describe the outcome in plain words, no secrets or file contents",
@@ -36,12 +36,15 @@ export function noteCommand(deps: Deps): AxiCliCommand<undefined> {
       notFound(`no block ${blockId}`, "Run `hours-axi blocks` to list block ids");
     }
     const anchor = target && anchorOf(target);
-    const project = (flags.project as string | undefined) ?? detectProject(deps.cwd).project;
+    const explicit = flags.project as string | undefined;
+    const project = explicit ?? detectProject(deps.cwd).project;
+    const cwd = explicit === undefined ? deps.cwd : undefined;
     const event: NoteEvent = {
       v: 1,
       type: "note",
       ts: new Date(deps.now()).toISOString(),
       project,
+      ...(cwd ? { cwd } : {}),
       text,
       ...(flags.ref ? { ref: flags.ref as string } : {}),
       ...(blockId ? { block: blockId } : {}),
@@ -56,7 +59,7 @@ export function noteCommand(deps: Deps): AxiCliCommand<undefined> {
       ? findBlock(state, blockId)
       : blockForNote(
           state.blocks.filter((b) => b.notes.includes(text)),
-          state.settings.projects[project] ?? project,
+          projectName(state.settings, project, cwd),
           deps.now(),
           state.settings.idleGapMinutes * 60_000,
         );

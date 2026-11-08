@@ -27,3 +27,8 @@ for (const [label, raw] of [
     assert.throws(() => loadSettings(withConfig(raw)), { code: "CONFIG_ERROR" });
   });
 }
+
+test("a ~/ project key is expanded against HOME", () => {
+  const env = { ...withConfig('{"projects": {"~/work/api": "API"}}'), HOME: "/home/me" };
+  assert.deepEqual(loadSettings(env).projects, { "/home/me/work/api": "API" });
+});

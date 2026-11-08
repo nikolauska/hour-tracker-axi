@@ -5,8 +5,22 @@ import { dayKey, nextLocalMidnight } from "./time.js";
 export interface Config {
   idleGapMinutes: number;
   roundMinutes: number;
-  // Repo name → name used in reports.
+  // Repo name, or absolute path prefix, → name used in reports.
   projects?: Record<string, string>;
+}
+
+// Two repos can share a folder name (work/api and personal/api), so an absolute path key
+// tells them apart; the longest matching path wins, then a plain repo-name key.
+export function projectName(config: Config, project: string, cwd?: string): string {
+  const projects = config.projects ?? {};
+  if (cwd) {
+    const dir = `${cwd.replace(/\/+$/, "")}/`;
+    const match = Object.keys(projects)
+      .filter((key) => key.startsWith("/") && dir.startsWith(`${key.replace(/\/+$/, "")}/`))
+      .sort((a, b) => b.length - a.length)[0];
+    if (match !== undefined) return projects[match];
+  }
+  return projects[project] ?? project;
 }
 
 export interface Block {
@@ -54,7 +68,7 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
   const gap = config.idleGapMinutes * 60_000;
   // Aliases are resolved here, on read, so renaming a project in config fixes past weeks too,
   // and a note or edit can use either the repo name or the report name.
-  const name = (project: string) => config.projects?.[project] ?? project;
+  const name = (project: string, cwd?: string) => projectName(config, project, cwd);
   // Drops and restores are settled first, in log order, because an anchored drop has to be
   // known before activity is grouped into blocks.
   const drops = new Map<string, DropEvent>();
@@ -73,7 +87,7 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
     if (event.type === "add") {
       const block: Block = {
         id: event.id,
-        project: name(event.project),
+        project: name(event.project, event.cwd),
         start: Date.parse(event.start),
         end: Date.parse(event.end),
         notes: event.note ? [event.note] : [],
@@ -94,7 +108,8 @@ export function deriveBlocks(events: HoursEvent[], config: Config): Derived {
         // A note only adds text, so landing on whichever block now covers that time is safe.
         block = byId.get(event.block) ?? (event.anchor && covering(blocks, event.anchor));
         if (!block) orphans.push({ type: "note", block: event.block, ts: event.ts });
-      } else block = blockForNote(blocks, name(event.project), Date.parse(event.ts), gap);
+      } else
+        block = blockForNote(blocks, name(event.project, event.cwd), Date.parse(event.ts), gap);
       if (!block) continue;
       if (!block.notes.includes(event.text)) block.notes.push(event.text);
       if (event.ref && !block.refs.includes(event.ref)) block.refs.push(event.ref);
@@ -172,7 +187,7 @@ function covering(blocks: Block[], anchor: Anchor): Block | undefined {
 function activityBlocks(
   events: HoursEvent[],
   gap: number,
-  name: (project: string) => string,
+  name: (project: string, cwd?: string) => string,
   excluded: Anchor[],
 ): Block[] {
   const bySession = new Map<string, ActivityEvent[]>();
@@ -195,7 +210,7 @@ function activityBlocks(
       blocks.push({
         id: blockId(session, run[0].ts),
         // A session can cd between repos; the most frequent project is what the time was spent on.
-        project: mostFrequent(run.map((e) => name(e.project))),
+        project: mostFrequent(run.map((e) => name(e.project, e.cwd))),
         session,
         start,
         end,

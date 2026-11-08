@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { allocate, anchorOf, buildBlocks, deriveBlocks } from "../dist/blocks.js";
+import { allocate, anchorOf, buildBlocks, deriveBlocks, projectName } from "../dist/blocks.js";
 
 const CONFIG = { idleGapMinutes: 15, roundMinutes: 15 };
 const T = (hhmm, day = "2026-11-02") => `${day}T${hhmm}:00.000Z`;
@@ -282,4 +282,17 @@ test("an edit or legacy drop whose block is gone is reported, not silently skipp
     orphans.map((o) => o.type),
     ["edit", "drop"],
   );
+});
+
+test("a path key tells apart repos that share a folder name; the longest path wins", () => {
+  const config = {
+    ...CONFIG,
+    projects: { "/work/api": "CLIENT-API", "/work/api/admin": "ADMIN", api: "OTHER" },
+  };
+  assert.equal(projectName(config, "api", "/work/api"), "CLIENT-API");
+  assert.equal(projectName(config, "api", "/work/api/src/"), "CLIENT-API");
+  assert.equal(projectName(config, "admin", "/work/api/admin/x"), "ADMIN");
+  assert.equal(projectName(config, "api", "/work/api-v2"), "OTHER");
+  assert.equal(projectName(config, "api", "/home/me/api"), "OTHER");
+  assert.equal(projectName(config, "api"), "OTHER");
 });
